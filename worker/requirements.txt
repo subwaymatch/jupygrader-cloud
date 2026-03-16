@@ -1,0 +1,4 @@
+jupygrader
+psycopg2-binary
+boto3
+openai
