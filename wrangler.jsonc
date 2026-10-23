@@ -20,8 +20,7 @@
     {
       "binding": "DB",
       "database_name": "jupygrader",
-      // Replace with the id printed by `wrangler d1 create jupygrader`.
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "3e5ec116-4d36-4fe2-8aa7-82f6ded047b3",
       "migrations_dir": "migrations"
     }
   ],
