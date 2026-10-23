@@ -1,0 +1,52 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "jupygrader-cloud",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  // Custom entry: vinext's fetch handler plus Queue and Cron handlers for grading.
+  "main": "./worker/index.ts",
+  "assets": {
+    "directory": "dist/client",
+    "html_handling": "none",
+    "not_found_handling": "none",
+    "binding": "ASSETS",
+    "run_worker_first": ["/*", "!/_next/static/*", "!/*/_next/static/*"]
+  },
+  "vars": {
+    // Public URL of the deployment, used for links in emails. Change before deploying.
+    "APP_URL": "http://localhost:5173"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "jupygrader",
+      // Replace with the id printed by `wrangler d1 create jupygrader`.
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "FILES",
+      "bucket_name": "jupygrader-files"
+    }
+  ],
+  "queues": {
+    "producers": [{ "binding": "GRADING_QUEUE", "queue": "jupygrader-grading" }],
+    "consumers": [
+      {
+        "queue": "jupygrader-grading",
+        "max_batch_size": 1,
+        "max_batch_timeout": 1,
+        "max_retries": 100,
+        "max_concurrency": 10
+      }
+    ]
+  },
+  "triggers": {
+    // Every minute: recover stuck jobs and grade queued files if no queue is bound.
+    // Daily: delete submissions past the retention period and archive ended courses.
+    "crons": ["* * * * *", "17 3 * * *"]
+  },
+  "observability": { "enabled": true }
+}

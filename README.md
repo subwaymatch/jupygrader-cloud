@@ -1,1 +1,154 @@
-# jupygrader-cloud
+# Jupygrader Cloud
+
+AI-assisted grading for Jupyter notebooks and other student work, running entirely on Cloudflare.
+
+Teachers set up an assignment with instructions, a rubric and an optional answer key, drop in the students' files (or a `.zip`), and an OpenAI-compatible model grades each file in the background. Graders review the results next to the notebook, change any score, and send each student a private link. Feedback can be downloaded as the original notebook with the comments inserted as cells.
+
+## Features
+
+- **Courses and roles.** Per-course Teacher and Grader roles, site-wide Admins. Instructors request an account and an admin approves it. Graders and TAs join through email invitations. The first account on a new site becomes the admin.
+- **Assignments.** Instructions as text or a document (PDF, DOCX, Markdown, text). Rubrics can be skipped (the AI splits the points from the instructions), pasted or uploaded and itemized by the AI, or built by hand. Answer keys are sent to the AI but never shown to students. Grading style, feedback tone and length, and notes for the AI.
+- **Uploads.** Drag and drop anywhere on the page, or a `.zip` (unpacked in the browser). Exact duplicates are detected by SHA-256 before upload. Near-identical submissions (MinHash over the code) are flagged for review.
+- **Background grading.** Files are queued in Cloudflare Queues and graded a few at a time, so the page can be closed. Rate limits and transient errors are retried. Admins set a concurrency limit and a monthly spending cap.
+- **Review.** A split view with the rendered notebook on the left and the scores on the right. Low-confidence grades and close matches are flagged. Edit any rubric line (the AI's score stays visible and every change is in the history), override the total, mark files reviewed. Keyboard shortcuts: <kbd>J</kbd>/<kbd>K</kbd> next and previous, <kbd>R</kbd> reviewed, <kbd>E</kbd> edit total, <kbd>Esc</kbd> close.
+- **Feedback into the notebook.** Downloads insert a summary cell at the top and a `> **Feedback:**` Markdown cell after each commented cell, keeping every original cell, output and piece of metadata. Feedback cells are tagged (`jupygrader-feedback`), so grading a notebook that already has feedback replaces it instead of stacking it. Code files get feedback as comments in the file's own comment syntax; Markdown and text files get it after each paragraph. HTML, plain-text and JSON exports are available too, for one file or a `.zip` of many, plus a grades CSV.
+- **Student links.** A private page per file with the score, rubric, and the work with inline comments. Links can be turned off or replaced. Students don't need accounts.
+- **Admin.** Overview of what needs attention, users and roles, invitations, an activity log, and site settings (AI endpoint, encrypted API key, model, token rates, spending cap, concurrency, data retention).
+- **Works on phones.** The sidebar becomes a slide-in menu, tables become cards, and the review drawer switches between Feedback and File tabs.
+
+## Stack
+
+| Part | Choice |
+| --- | --- |
+| Framework | [vinext](https://github.com/cloudflare/vinext) (Next.js App Router on Vite) on Cloudflare Workers |
+| UI | React 19, [Base UI](https://base-ui.com) components, plain CSS (no Tailwind) |
+| Auth | [better-auth](https://better-auth.com) with D1: email and password, magic links, password reset |
+| Data | Cloudflare D1 (SQLite) |
+| Files | Cloudflare R2: submissions, instruction and rubric documents, answer keys |
+| Jobs | Cloudflare Queues for grading, Cron Triggers for recovery and retention |
+| AI | Any OpenAI-compatible Chat Completions API, with structured outputs (falls back to JSON mode) |
+| Email | [Resend](https://resend.com), optional |
+
+```
+Browser ──> Worker (worker/index.ts)
+              ├─ fetch:     vinext pages, server components and /api routes
+              │               ├─ D1  (users, courses, assignments, submissions, activity, usage)
+              │               ├─ R2  (files)
+              │               └─ Queue producer (one message per file to grade)
+              ├─ queue:     grading consumer ──> OpenAI-compatible API
+              └─ scheduled: every minute, requeue interrupted jobs (or grade directly
+                            when no queue is bound); daily, delete files past retention
+```
+
+## Local development
+
+Requirements: Node 22+.
+
+```bash
+npm install
+cp .dev.vars.example .dev.vars          # set BETTER_AUTH_SECRET to a long random string
+npm run db:migrate:local                # creates the local D1 database
+npm run dev                             # http://localhost:5173
+```
+
+Open the app and create the first account: it becomes the administrator. Then open **Admin > Settings**, enter the API address (for example `https://api.openai.com/v1`), an API key and a model, and click **Test saved settings**.
+
+Local D1, R2 and the queue are simulated by Miniflare and stored in `.wrangler/state`. Cron handlers can be triggered with:
+
+```bash
+curl "http://localhost:5173/cdn-cgi/handler/scheduled?cron=*+*+*+*+*"     # recovery tick
+curl "http://localhost:5173/cdn-cgi/handler/scheduled?cron=17+3+*+*+*"    # retention sweep
+```
+
+Without `RESEND_API_KEY`, emails (invitations, sign-in links, password resets) are printed to the terminal. Invite links can also be copied from the course member list or **Admin > Invitations**.
+
+## Deploying to Cloudflare
+
+You need a Cloudflare account. If Queues aren't available on your plan, see [without a queue](#without-a-queue).
+
+1. Sign in and create the resources:
+
+   ```bash
+   npx wrangler login
+   npx wrangler d1 create jupygrader
+   npx wrangler r2 bucket create jupygrader-files
+   npx wrangler queues create jupygrader-grading
+   ```
+
+2. In `wrangler.jsonc`, paste the `database_id` printed by `d1 create`, and set `vars.APP_URL` to the URL the app will be served from (for example `https://grader.example.edu` or `https://jupygrader-cloud.<you>.workers.dev`). It's used for links in emails.
+
+3. Set the secrets:
+
+   ```bash
+   npx wrangler secret put BETTER_AUTH_SECRET   # required: a long random string, e.g. openssl rand -base64 32
+   npx wrangler secret put RESEND_API_KEY       # optional: to send email
+   npx wrangler secret put EMAIL_FROM           # optional: e.g. "Jupygrader <grader@example.edu>" on a domain verified in Resend
+   npx wrangler secret put AI_API_KEY           # optional: a default key; admins can also set one in Settings
+   ```
+
+4. Create the tables and deploy:
+
+   ```bash
+   npm run db:migrate:remote
+   npm run deploy        # builds with Vite, then deploys with Wrangler
+   ```
+
+5. Open the app, create the first (admin) account, and configure AI grading in **Admin > Settings**.
+
+To serve the app on your own domain, add a [custom domain](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/) to the Worker and update `APP_URL`.
+
+### Without a queue
+
+The queue is optional. Remove the `queues` block from `wrangler.jsonc` and the every-minute Cron Trigger grades queued files instead, up to the "Files graded at once" setting per minute. Grading is slower to start but nothing else changes.
+
+### Configuration
+
+| Name | Kind | Purpose |
+| --- | --- | --- |
+| `BETTER_AUTH_SECRET` | secret, required | Signs sessions and encrypts the AI API key stored in D1. Changing it signs everyone out and makes the stored API key unreadable (enter it again in Settings). |
+| `APP_URL` | var | Public URL of the app. |
+| `RESEND_API_KEY`, `EMAIL_FROM` | secrets, optional | Send email through Resend. |
+| `AI_BASE_URL`, `AI_API_KEY`, `AI_MODEL` | optional | Defaults for the AI settings. Values saved in Admin > Settings take precedence. |
+
+Everything else (registration, allowed email domains, model, token rates for cost estimates, spending cap, concurrency, retention, reasoning effort, sending plots to the AI) is set by an admin in the app.
+
+## How grading works
+
+1. Each uploaded file is stored in R2, fingerprinted (SHA-256 for exact duplicates, MinHash for close matches) and queued.
+2. The queue consumer claims the file (an atomic status change, so a job never runs twice), checks the concurrency limit and spending cap, and builds the prompt: instructions, rubric, answer key (marked confidential), notes, and the file rendered with markers. Notebook cells are `[C1]`, `[C2]`…; code files are numbered lines (`L12-18`); documents are paragraphs (`[P3]`). Up to 6 notebook plots are attached as low-detail images. The file name is not sent.
+3. The model returns JSON matching a schema: a score, comment and cited markers for each rubric item, inline comments, a summary, and a confidence signal. The reply is validated: scores are clamped to each item's maximum in half points, unknown markers are dropped, and the total is scaled to the assignment's points.
+4. Token usage from the API is recorded with an estimated cost. Each grade stores the rubric version, style and model, so changing the setup marks older grades as "graded with earlier settings" until they're regraded.
+
+The notebook logic lives in `lib/shared/notebook.ts` and `lib/shared/document.ts`; the prompt and validation in `lib/server/grading.ts`.
+
+## Project layout
+
+```
+app/                    routes (App Router)
+  (auth)/               sign in, register, password reset, invitations
+  (app)/                signed-in screens: courses, assignments, admin, account, help
+  r/[token]/            public student feedback page
+  api/                  JSON routes used by the UI
+components/             UI (Base UI wrappers in components/ui)
+lib/shared/             code shared by browser and Worker: rubric, notebook, exports
+lib/server/             Worker-only code: auth, access control, grading, storage
+migrations/             D1 schema
+worker/index.ts         Worker entry: fetch (vinext), queue and scheduled handlers
+test/                   unit tests (Vitest)
+```
+
+## Scripts
+
+| Command | |
+| --- | --- |
+| `npm run dev` | Dev server with local D1, R2 and queue |
+| `npm run build` | Production build into `dist/` |
+| `npm start` | Run the production build locally with Wrangler |
+| `npm run deploy` | Build and deploy to Cloudflare |
+| `npm run db:migrate:local` / `db:migrate:remote` | Apply D1 migrations |
+| `npm test` | Unit tests |
+| `npm run typecheck` | Generate binding types and type-check |
+
+## Not included yet
+
+The design prototype also covers Canvas LMS integration (linking courses, importing submissions, posting grades) and an admin "view as" mode. Neither is implemented here.
