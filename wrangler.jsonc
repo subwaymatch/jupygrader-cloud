@@ -13,8 +13,8 @@
     "run_worker_first": ["/*", "!/_next/static/*", "!/*/_next/static/*"]
   },
   "vars": {
-    // Public URL of the deployment, used for links in emails. Change before deploying.
-    "APP_URL": "http://localhost:5173"
+    // Public URL of the deployment, used for links in emails. `npm run dev` uses .dev.vars instead.
+    "APP_URL": "https://jupygrader-cloud.subwaymatch.workers.dev"
   },
   "d1_databases": [
     {
