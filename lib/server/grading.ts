@@ -274,29 +274,30 @@ export async function processSubmission(id: string): Promise<ProcessOutcome> {
   const staleBefore = new Date(now.getTime() - STALE_MS).toISOString();
 
   const active = await first<{ n: number }>("select count(*) n from submission where status = 'grading' and started_at > ?", staleBefore);
+  // Waiting outcomes only apply while the file is still queued; a deleted or cancelled file's job is dropped.
   if ((active?.n ?? 0) >= Math.max(1, settings.concurrency)) {
-    await run("update submission set queued_at = ? where id = ? and status = 'queued'", now.toISOString(), id);
-    return "busy";
+    const waiting = await run("update submission set queued_at = ? where id = ? and status = 'queued'", now.toISOString(), id);
+    return waiting.meta.changes ? "busy" : "skip";
   }
   if (!settings.aiApiKey) {
-    await run(
+    const waiting = await run(
       "update submission set queued_at = ?, note = ? where id = ? and status = 'queued'",
       now.toISOString(),
       "Waiting: no AI API key is set. An admin can add one in Settings.",
       id,
     );
-    return "paused";
+    return waiting.meta.changes ? "paused" : "skip";
   }
   if (settings.capOn && settings.cap > 0) {
     const usage = await monthUsage();
     if (usage.cost >= settings.cap) {
-      await run(
+      const waiting = await run(
         "update submission set queued_at = ?, note = ? where id = ? and status = 'queued'",
         now.toISOString(),
         "Waiting: the monthly AI spending cap is reached.",
         id,
       );
-      return "paused";
+      return waiting.meta.changes ? "paused" : "skip";
     }
   }
 
