@@ -9,7 +9,7 @@ import { Icon } from "@/components/ui/Icon";
 import { Select } from "@/components/ui/Select";
 import { toast } from "@/components/ui/Toast";
 import { api, errorMessage } from "@/lib/client/api";
-import { RETENTION_OPTIONS } from "@/lib/shared/constants";
+import { AI_PROVIDERS, EFFORTS, RETENTION_OPTIONS, type AiProvider } from "@/lib/shared/constants";
 import { fmtTokens, fmtUsd } from "@/lib/shared/format";
 import type { SiteSettings } from "@/lib/server/settings";
 
@@ -28,6 +28,16 @@ export function SettingsForm({ initial, keyInfo, usage, emailOn }: Props) {
   const [busy, setBusy] = useState<"" | "save" | "models" | "test">("");
   const set = (p: Partial<SiteSettings>) => setS((cur) => ({ ...cur, ...p }));
   const pct = s.cap > 0 ? Math.min(100, (usage.cost / s.cap) * 100) : 0;
+  const provider = AI_PROVIDERS[s.aiProvider];
+  const anthropic = s.aiProvider === "anthropic";
+  const keyFromOtherProvider = s.aiProvider !== initial.aiProvider && keyInfo.source !== "none" && !apiKey;
+
+  function switchProvider(aiProvider: AiProvider) {
+    if (aiProvider === s.aiProvider) return;
+    const p = AI_PROVIDERS[aiProvider];
+    set({ aiProvider, aiBaseUrl: p.baseUrl, model: p.model, reasoningEffort: "", ...p.rates });
+    setModels([]);
+  }
 
   async function save() {
     setBusy("save");
@@ -46,7 +56,7 @@ export function SettingsForm({ initial, keyInfo, usage, emailOn }: Props) {
   async function loadModels() {
     setBusy("models");
     try {
-      const r = await api<{ models: string[] }>("/api/admin/settings/models", { body: { aiBaseUrl: s.aiBaseUrl, aiApiKey: apiKey || undefined } });
+      const r = await api<{ models: string[] }>("/api/admin/settings/models", { body: { aiProvider: s.aiProvider, aiBaseUrl: s.aiBaseUrl, aiApiKey: apiKey || undefined } });
       setModels(r.models);
       toast(r.models.length ? `Found ${r.models.length} models` : "The API returned no models");
     } catch (err) {
@@ -96,25 +106,40 @@ export function SettingsForm({ initial, keyInfo, usage, emailOn }: Props) {
 
       <section className="settings-section">
         <h2 className="h2">AI grading</h2>
+        <Field label="Provider" hint="Switching fills in that provider's default address, model and rates.">
+          <div style={{ maxWidth: 240 }}>
+            <Select
+              value={s.aiProvider}
+              onChange={switchProvider}
+              options={(Object.keys(AI_PROVIDERS) as AiProvider[]).map((value) => ({ value, label: AI_PROVIDERS[value].label }))}
+            />
+          </div>
+        </Field>
         <Field
           label="API address"
           htmlFor="st-base"
-          hint="Any OpenAI-compatible Chat Completions API, such as https://api.openai.com/v1, an Azure OpenAI or OpenRouter endpoint, or a self-hosted server."
+          hint={
+            anthropic
+              ? "The Anthropic Messages API at https://api.anthropic.com, or a gateway that serves the same API."
+              : "Any OpenAI-compatible Chat Completions API, such as https://api.openai.com/v1, an Azure OpenAI or OpenRouter endpoint, or a self-hosted server."
+          }
         >
-          <Input id="st-base" value={s.aiBaseUrl} onChange={(e) => set({ aiBaseUrl: e.target.value })} placeholder="https://api.openai.com/v1" mono />
+          <Input id="st-base" value={s.aiBaseUrl} onChange={(e) => set({ aiBaseUrl: e.target.value })} placeholder={provider.baseUrl} mono />
         </Field>
         <Field
           label="API key"
           htmlFor="st-key"
           hint={
-            keyInfo.source === "settings"
-              ? `A key ending in ${keyInfo.last4} is saved, encrypted. Enter a new one to replace it.`
-              : keyInfo.source === "env"
-                ? `Using the AI_API_KEY secret (ending in ${keyInfo.last4}). A key saved here takes precedence.`
-                : "Submissions are sent to this API for grading. The key is encrypted before it is stored."
+            keyFromOtherProvider
+              ? `Enter a key for ${provider.label}. The key ending in ${keyInfo.last4} was set up for the previous provider.`
+              : keyInfo.source === "settings"
+                ? `A key ending in ${keyInfo.last4} is saved, encrypted. Enter a new one to replace it.`
+                : keyInfo.source === "env"
+                  ? `Using the AI_API_KEY secret (ending in ${keyInfo.last4}). A key saved here takes precedence.`
+                  : "Submissions are sent to this API for grading. The key is encrypted before it is stored."
           }
         >
-          <Input id="st-key" type="password" autoComplete="off" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder={keyInfo.source !== "none" ? "••••••••••••" + keyInfo.last4 : "sk-…"} />
+          <Input id="st-key" type="password" autoComplete="off" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder={keyInfo.source !== "none" ? "••••••••••••" + keyInfo.last4 : anthropic ? "sk-ant-…" : "sk-…"} />
         </Field>
         <Field label="Model" htmlFor="st-model" hint="Used for all grading. Changing it doesn't regrade existing results; they show as graded with earlier settings.">
           <div className="row">
@@ -122,7 +147,7 @@ export function SettingsForm({ initial, keyInfo, usage, emailOn }: Props) {
               {models.length ? (
                 <Select value={s.model} onChange={(v) => set({ model: v })} options={modelOptions.map((m) => ({ value: m, label: m }))} />
               ) : (
-                <Input id="st-model" value={s.model} onChange={(e) => set({ model: e.target.value })} placeholder="gpt-5-mini" mono />
+                <Input id="st-model" value={s.model} onChange={(e) => set({ model: e.target.value })} placeholder={provider.model} mono />
               )}
             </div>
             <Button variant="secondary" icon="refresh" onClick={loadModels} loading={busy === "models"}>
@@ -130,24 +155,32 @@ export function SettingsForm({ initial, keyInfo, usage, emailOn }: Props) {
             </Button>
           </div>
         </Field>
-        <Field label="Reasoning effort" optional hint="For reasoning models only. Leave as Default for other models, or if the API rejects the setting.">
+        <Field
+          label={anthropic ? "Effort" : "Reasoning effort"}
+          optional
+          hint={
+            anthropic
+              ? "How much Claude thinks before it grades. Higher effort uses more output tokens. Default uses the model's own default; older models may reject other values."
+              : "For reasoning models only. Leave as Default for other models, or if the API rejects the setting."
+          }
+        >
           <Select
             value={s.reasoningEffort || "default"}
             onChange={(v) => set({ reasoningEffort: (v === "default" ? "" : v) as SiteSettings["reasoningEffort"] })}
-            options={[
-              { value: "default", label: "Default" },
-              { value: "minimal", label: "Minimal" },
-              { value: "low", label: "Low" },
-              { value: "medium", label: "Medium" },
-              { value: "high", label: "High" },
-            ]}
+            options={[{ value: "default", label: "Default" }, ...provider.efforts.map((e) => ({ value: e, label: EFFORTS[e] }))]}
           />
         </Field>
         <Checkbox
           checked={s.sendImages}
           onChange={(v) => set({ sendImages: v })}
           label="Send plots and images to the AI"
-          description="Up to 6 notebook output images per file, at low detail, so the AI can judge visualizations. Needs a model that accepts images."
+          description={`Up to 6 notebook output images per file${anthropic ? "" : ", at low detail,"} so the AI can judge visualizations. Images use many tokens; when off, the AI sees a short note instead. Needs a model that accepts images.`}
+        />
+        <Checkbox
+          checked={s.sendInteractive}
+          onChange={(v) => set({ sendInteractive: v })}
+          label="Send interactive outputs to the AI"
+          description="Widgets and Plotly, Bokeh or Vega charts can't be shown to the AI. When on, their text form is sent, up to 2,000 characters each. When off, the AI sees a short note instead."
         />
         <div>
           <Button variant="outline" icon="send" onClick={test} loading={busy === "test"}>

@@ -32,7 +32,8 @@ export type GradedMeta = {
   gradedAt: string;
 };
 
-export type Usage = { input: number; cached: number; output: number; reasoning: number };
+/** Token counts. `input` includes the cached tokens and, on the Anthropic API, the tokens written to the cache (`cacheWrite`). */
+export type Usage = { input: number; cached: number; cacheWrite?: number; output: number; reasoning: number };
 
 export type HistoryEntry = { who: string; at: string; text: string };
 

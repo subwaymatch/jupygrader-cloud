@@ -169,7 +169,7 @@ export default async function HelpPage() {
         <section className="section">
           <h2 className="h2">What the AI receives</h2>
           <ul className="bullets">
-            <li>The submitted file, with notebook outputs and up to 6 plots</li>
+            <li>The submitted file, with notebook outputs{s.sendImages ? " and up to 6 plots" : ""}</li>
             <li>The assignment instructions</li>
             <li>The rubric items and their points</li>
             <li>The answer key, if one was added</li>
@@ -217,7 +217,8 @@ export default async function HelpPage() {
           <div className="def-row">
             <strong>Model</strong>
             <span>
-              Grading uses <strong>{s.model || "a model chosen by an admin"}</strong> through an OpenAI-compatible API chosen by an admin.
+              Grading uses <strong>{s.model || "a model chosen by an admin"}</strong> through{" "}
+              {s.aiProvider === "anthropic" ? "the Anthropic API" : "an OpenAI-compatible API"} chosen by an admin.
             </span>
           </div>
           <div className="def-row">

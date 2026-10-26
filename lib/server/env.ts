@@ -5,6 +5,7 @@ declare global {
     interface Env {
       RESEND_API_KEY?: string;
       EMAIL_FROM?: string;
+      AI_PROVIDER?: string;
       AI_BASE_URL?: string;
       AI_API_KEY?: string;
       AI_MODEL?: string;

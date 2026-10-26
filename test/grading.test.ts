@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { linesDoc } from "@/lib/shared/document";
 import { parseNotebook } from "@/lib/shared/notebook";
+import type { ContentPart } from "@/lib/server/ai";
 import { buildGradingMessages, normalizeGrade, scoreFrom } from "@/lib/server/grading";
 import { minhash, similarity } from "@/lib/server/similarity";
 
@@ -74,15 +75,38 @@ describe("prompt", () => {
       doc: { type: "notebook", nb },
       fileExt: "ipynb",
       sendImages: true,
+      sendInteractive: false,
     });
     const sys = msgs[0].content as string;
-    const user = (msgs[1].content as { type: string; text?: string }[]).map((p) => p.text ?? "").join("\n");
+    const parts = msgs[1].content as ContentPart[];
+    const user = parts.map((p) => (p.type === "text" ? p.text : "")).join("\n");
     expect(sys).toContain("Grading style: Strict");
     expect(sys).toContain("never quote it");
+    expect(sys).toContain('"not shown to you"');
     expect(user).toContain("1. Correctness (6 pts)");
     expect(user).toContain("Answer key (confidential");
     expect(user).toContain("<submission>");
     expect(user).not.toContain("brownisla");
+  });
+
+  it("puts the assignment context, which is the same for every file, in its own cacheable part", () => {
+    const msgs = buildGradingMessages({
+      asg: { title: "HW 1", points: 10, task_text: "Do it", notes: "", style: "balanced", tone: "neutral", length: "standard" },
+      rows,
+      answerKeys: [],
+      doc: { type: "notebook", nb },
+      fileExt: "ipynb",
+      sendImages: false,
+      sendInteractive: false,
+    });
+    const [context, submission, ...rest] = msgs[1].content as ContentPart[];
+    expect(context).toMatchObject({ type: "text", cache: true });
+    expect(context.type === "text" && context.text).toContain("1. Correctness (6 pts)");
+    expect(context.type === "text" && context.text).not.toContain("<submission>");
+    expect(submission).toMatchObject({ type: "text" });
+    expect(submission.type === "text" && submission.cache).toBeFalsy();
+    expect(submission.type === "text" && submission.text).toContain("<submission>");
+    expect(rest).toEqual([]);
   });
 });
 
