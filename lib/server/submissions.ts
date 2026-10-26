@@ -24,6 +24,7 @@ import { all, first, parseJson, run } from "./db";
 import { appUrl } from "./env";
 import { badRequest } from "./http";
 import { newId, newShareToken, sha256Hex } from "./ids";
+import { nbconvertHtml } from "./nbconvert";
 import { NEAR_THRESHOLD, minhash, similarity } from "./similarity";
 import { getBytes, putFile, submissionDoc, submissionKey } from "./storage";
 
@@ -217,6 +218,29 @@ export function exportContext(row: SubmissionRow, asg: AssignmentRow, course: Co
 
 export type DownloadFile = { name: string; data: string | Uint8Array; type: string };
 
+function feedbackHeader(row: SubmissionRow, asg: AssignmentRow, ctx: ExportContext) {
+  return { title: asg.title, score: ctx.score, points: asg.points, gradedAt: ctx.graded?.gradedAt, sha256: row.sha256 };
+}
+
+/**
+ * "Notebook as HTML" rendered by nbconvert (lib/server/nbconvert.ts) from the graded
+ * notebook, feedback cells included. Null when the submission isn't a notebook or
+ * nbconvert isn't available; callers then use buildDownload's built-in HTML.
+ */
+export async function nbconvertDownload(
+  row: SubmissionRow,
+  asg: AssignmentRow,
+  course: CourseRow,
+  req?: Request,
+): Promise<{ name: string; data: ReadableStream<Uint8Array>; type: string } | null> {
+  if (row.kind !== "notebook") return null;
+  const doc = await submissionDoc(row);
+  if (doc.type !== "notebook") return null;
+  const ctx = exportContext(row, asg, course, doc, req);
+  const html = await nbconvertHtml(annotatedNotebook(doc, ctx.result, feedbackHeader(row, asg, ctx)), `${asg.title}: ${row.file_name}`);
+  return html && { name: `${baseName(row.file_name)}_graded.html`, data: html, type: "text/html; charset=utf-8" };
+}
+
 export async function buildDownload(
   row: SubmissionRow,
   asg: AssignmentRow,
@@ -233,7 +257,7 @@ export async function buildDownload(
   }
   const doc = await submissionDoc(row);
   const ctx = exportContext(row, asg, course, doc, req);
-  const h = { title: asg.title, score: ctx.score, points: asg.points, gradedAt: ctx.graded?.gradedAt, sha256: row.sha256 };
+  const h = feedbackHeader(row, asg, ctx);
   const cells = () => docViewCells(doc, ctx.result.comments);
   switch (format) {
     case "html":
