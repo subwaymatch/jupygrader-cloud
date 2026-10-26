@@ -35,7 +35,8 @@ export class Nbconvert extends DurableObject<Cloudflare.Env> {
   }
 
   private async startAndWait(container: Container): Promise<void> {
-    if (!container.running) container.start({ enableInternet: false });
+    // standard-1 is 1/2 vCPU and 4 GiB. lite (1/16 vCPU) takes about 45 s to start and convert.
+    if (!container.running) container.start({ image: container.images.nbconvert, instance: "standard-1", enableInternet: false });
     await container.setInactivityTimeout(IDLE_MS);
     const port = container.getTcpPort(PORT);
     const deadline = Date.now() + READY_TIMEOUT_MS;
