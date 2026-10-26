@@ -46,6 +46,41 @@ describe("notebooks", () => {
     expect(notebookRefLabels(nb)).toMatchObject({ C2: "In [3]", C4: "Cell 4" });
   });
 
+  it("replaces images with a note when they aren't sent", () => {
+    const ai = notebookForAI(parseNotebook(raw), { maxImages: 0 });
+    expect(ai.text).toContain("[image output, not shown to you: <Figure>]");
+    expect(ai.images).toEqual([]);
+  });
+
+  it("replaces interactive outputs with a note unless they are sent", () => {
+    const nb = parseNotebook(
+      JSON.stringify({
+        nbformat: 4,
+        nbformat_minor: 5,
+        metadata: {},
+        cells: [
+          {
+            cell_type: "code",
+            metadata: {},
+            execution_count: 1,
+            source: "fig.show()",
+            outputs: [
+              { output_type: "display_data", metadata: {}, data: { "application/vnd.plotly.v1+json": { data: [] }, "text/plain": "Figure({'data': [...]})" } },
+              { output_type: "display_data", metadata: {}, data: { "text/html": "<div id='map'></div><script>L.map('map')</script>" } },
+              { output_type: "execute_result", metadata: {}, execution_count: 1, data: { "text/plain": "   a  b\n0  1  2" } },
+            ],
+          },
+        ],
+      }),
+    );
+    const off = notebookForAI(nb).text;
+    expect(off).toContain("[Plotly chart, not shown to you]");
+    expect(off).toContain("[interactive HTML output, not shown to you]");
+    expect(off).not.toContain("Figure({");
+    expect(off).toContain("0  1  2");
+    expect(notebookForAI(nb, { interactive: true }).text).toContain("Figure({'data': [...]})");
+  });
+
   it("inserts a summary cell and feedback cells, keeping the original cells", () => {
     const nb = parseNotebook(raw);
     const out = insertNotebookFeedback(nb, result, { title: "HW", score: 7.5, points: 10 });

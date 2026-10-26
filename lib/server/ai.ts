@@ -1,21 +1,18 @@
+import type { AiProvider } from "@/lib/shared/constants";
 import type { Usage } from "@/lib/shared/types";
-import type { SiteSettingsWithKey } from "./settings";
+import { anthropicChatJson, anthropicListModels } from "./ai-anthropic";
+import {
+  AiError,
+  describeApiError,
+  parseJsonContent,
+  schemaInstruction,
+  type ChatJsonOptions,
+  type ChatJsonResult,
+  type ChatMessage,
+  type ContentPart,
+} from "./ai-shared";
 
-export type ContentPart =
-  | { type: "text"; text: string }
-  | { type: "image_url"; image_url: { url: string; detail?: "low" | "high" | "auto" } };
-
-export type ChatMessage = { role: "system" | "user" | "assistant"; content: string | ContentPart[] };
-
-export class AiError extends Error {
-  constructor(
-    message: string,
-    public retryable: boolean,
-    public status?: number,
-  ) {
-    super(message);
-  }
-}
+export { AiError, type ChatMessage, type ContentPart } from "./ai-shared";
 
 type ChatResponse = {
   model?: string;
@@ -44,26 +41,30 @@ function describeHttpError(status: number, body: string): AiError {
   } catch {
     msg = body.slice(0, 200);
   }
-  if (status === 401 || status === 403) return new AiError(`The AI API rejected the API key (${status}). An admin can check it in Settings.`, false, status);
-  if (status === 404) return new AiError(`The AI API couldn't find the model or endpoint (404). ${msg}`.trim(), false, status);
-  if (status === 429 && /quota|billing|credit/i.test(code + " " + msg))
-    return new AiError("The AI account is out of credit (429). Add credit with the AI provider, then retry.", false, status);
-  if (status === 429) return new AiError("The AI API is rate limiting requests (429). Retry to resend, or lower Files graded at once in Settings.", true, status);
-  if (status === 413) return new AiError("This file is too large for the AI to read in one request (413).", false, status);
-  if (status >= 500) return new AiError(`The AI API had an error (${status}). Retry to resend.`, true, status);
-  return new AiError(`The AI API returned an error (${status}). ${msg}`.trim(), false, status);
+  return describeApiError(status, msg, code);
 }
 
-function parseJsonContent(content: string): unknown {
-  const trimmed = content.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
-  try {
-    return JSON.parse(trimmed);
-  } catch {
-    const start = trimmed.indexOf("{");
-    const end = trimmed.lastIndexOf("}");
-    if (start >= 0 && end > start) return JSON.parse(trimmed.slice(start, end + 1));
-    throw new AiError("The AI's reply wasn't valid JSON. Retry to resend.", true);
-  }
+/**
+ * Sends a request to the AI provider chosen in Settings and returns the reply
+ * parsed as JSON that matches the schema.
+ */
+export async function chatJson<T>(opts: ChatJsonOptions): Promise<ChatJsonResult<T>> {
+  const s = opts.settings;
+  if (!s.aiApiKey) throw new AiError("No AI API key is set. An admin can add one in Settings.", false);
+  if (!s.model) throw new AiError("No AI model is set. An admin can choose one in Settings.", false);
+  return s.aiProvider === "anthropic" ? anthropicChatJson<T>(opts) : openAiChatJson<T>(opts);
+}
+
+/** Lists model ids from the provider, for the Settings picker. */
+export async function listModels(provider: AiProvider, base: string, key: string): Promise<string[]> {
+  return provider === "anthropic" ? anthropicListModels(base, key) : openAiListModels(base, key);
+}
+
+/** Drops the cache marks, which Chat Completions APIs don't accept. */
+function openAiMessages(messages: ChatMessage[]): ChatMessage[] {
+  return messages.map((m) =>
+    typeof m.content === "string" ? m : { ...m, content: m.content.map((p): ContentPart => (p.type === "text" ? { type: "text", text: p.text } : p)) },
+  );
 }
 
 /**
@@ -71,27 +72,20 @@ function parseJsonContent(content: string): unknown {
  * Uses structured outputs (json_schema) and falls back to JSON mode for
  * providers that don't support schemas.
  */
-export async function chatJson<T>(opts: {
-  settings: SiteSettingsWithKey;
-  messages: ChatMessage[];
-  schema: Record<string, unknown>;
-  schemaName: string;
-  timeoutMs?: number;
-}): Promise<{ data: T; usage: Usage; model: string }> {
+async function openAiChatJson<T>(opts: ChatJsonOptions): Promise<ChatJsonResult<T>> {
   const s = opts.settings;
-  if (!s.aiApiKey) throw new AiError("No AI API key is set. An admin can add one in Settings.", false);
-  if (!s.model) throw new AiError("No AI model is set. An admin can choose one in Settings.", false);
+  const base = openAiMessages(opts.messages);
 
   const send = async (mode: "schema" | "object") => {
     const messages =
       mode === "schema"
-        ? opts.messages
+        ? base
         : [
-            ...opts.messages.slice(0, 1).map((m) => ({
+            ...base.slice(0, 1).map((m) => ({
               ...m,
-              content: `${m.content}\n\nReply with a single JSON object that matches this JSON Schema:\n${JSON.stringify(opts.schema)}`,
+              content: `${m.content}\n\n${schemaInstruction(opts.schema)}`,
             })),
-            ...opts.messages.slice(1),
+            ...base.slice(1),
           ];
     const body: Record<string, unknown> = {
       model: s.model,
@@ -146,8 +140,7 @@ export async function chatJson<T>(opts: {
   return { data: parseJsonContent(content) as T, usage, model: json.model || s.model };
 }
 
-/** Lists model ids from the provider's /models endpoint, for the Settings picker. */
-export async function listModels(base: string, key: string): Promise<string[]> {
+async function openAiListModels(base: string, key: string): Promise<string[]> {
   const url = base.replace(/\/+$/, "").replace(/\/chat\/completions$/, "") + "/models";
   const res = await fetch(url, { headers: { Authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(15_000) });
   if (!res.ok) throw describeHttpError(res.status, await res.text());

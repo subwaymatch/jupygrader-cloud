@@ -67,9 +67,10 @@ export function labelFor(ref: string, labels: Record<string, string>): string {
 
 export type AiDocument = { text: string; images: AiImage[]; refHelp: string };
 
-export function docForAI(doc: SourceDoc): AiDocument {
+/** `images` and `interactive` say whether notebook output images and interactive outputs are sent. A submitted image is always sent. */
+export function docForAI(doc: SourceDoc, opts: { images: boolean; interactive: boolean }): AiDocument {
   if (doc.type === "notebook") {
-    const r = notebookForAI(doc.nb);
+    const r = notebookForAI(doc.nb, { maxImages: opts.images ? 6 : 0, interactive: opts.interactive });
     return {
       text: r.text,
       images: r.images,
