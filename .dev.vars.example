@@ -1,0 +1,19 @@
+# Copy to .dev.vars for local development. In production set these with
+# `wrangler secret put <NAME>` (secrets) or under "vars" in wrangler.jsonc.
+
+# Required. Any long random string (e.g. `openssl rand -base64 32`).
+BETTER_AUTH_SECRET=change-me-to-a-long-random-string
+
+# Public URL of the app, used in emails and as the auth base URL.
+APP_URL=http://localhost:5173
+
+# Optional: send emails (invitations, sign-in links, password resets) with Resend.
+# Without it, emails are printed to the Worker logs instead.
+# RESEND_API_KEY=re_...
+# EMAIL_FROM="Jupygrader <grader@yourdomain.edu>"
+
+# Optional defaults for the OpenAI-compatible API. Admins can override these
+# in Admin > Settings; values saved there take precedence.
+# AI_BASE_URL=https://api.openai.com/v1
+# AI_API_KEY=sk-...
+# AI_MODEL=gpt-5-mini
