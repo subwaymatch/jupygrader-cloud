@@ -50,6 +50,32 @@ export const ACTIVITY_TYPES = {
 } as const;
 export type ActivityType = keyof typeof ACTIVITY_TYPES;
 
+export const EFFORTS = { minimal: "Minimal", low: "Low", medium: "Medium", high: "High", xhigh: "Extra high", max: "Max" } as const;
+export type Effort = keyof typeof EFFORTS;
+
+/** Where grading requests can go, with the defaults filled in when an admin picks one. Rates are USD per million tokens. */
+export const AI_PROVIDERS = {
+  openai: {
+    label: "OpenAI-compatible",
+    baseUrl: "https://api.openai.com/v1",
+    model: "gpt-6-luna",
+    rates: { rateInput: 0.1, rateCached: 0.01, rateOutput: 0.5 },
+    efforts: ["minimal", "low", "medium", "high"],
+  },
+  anthropic: {
+    label: "Anthropic (Claude)",
+    baseUrl: "https://api.anthropic.com",
+    model: "claude-haiku-5-5",
+    rates: { rateInput: 0.1, rateCached: 0.01, rateOutput: 0.5 },
+    efforts: ["low", "medium", "high", "xhigh", "max"],
+  },
+} as const satisfies Record<string, { label: string; baseUrl: string; model: string; rates: Record<string, number>; efforts: readonly Effort[] }>;
+export type AiProvider = keyof typeof AI_PROVIDERS;
+
+export function isAiProvider(v: unknown): v is AiProvider {
+  return typeof v === "string" && Object.hasOwn(AI_PROVIDERS, v);
+}
+
 export const RETENTION_OPTIONS = [
   { days: 30, label: "30 days" },
   { days: 90, label: "90 days" },

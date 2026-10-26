@@ -1,10 +1,14 @@
+import { AI_PROVIDERS, isAiProvider, type AiProvider, type Effort } from "@/lib/shared/constants";
 import { all, run } from "./db";
 import { decryptSecret, encryptSecret } from "./crypto";
 import { getEnv } from "./env";
 
+export type { AiProvider } from "@/lib/shared/constants";
+
 export type SiteSettings = {
   openReg: boolean;
   domains: string;
+  aiProvider: AiProvider;
   aiBaseUrl: string;
   model: string;
   /** Extra model names offered in the picker. */
@@ -18,27 +22,30 @@ export type SiteSettings = {
   concurrency: number;
   retention: number;
   sendImages: boolean;
-  reasoningEffort: "" | "minimal" | "low" | "medium" | "high";
+  sendInteractive: boolean;
+  reasoningEffort: "" | Effort;
 };
 
 export type SiteSettingsWithKey = SiteSettings & { aiApiKey: string; aiKeySource: "settings" | "env" | "none" };
 
 export function defaultSettings(): SiteSettings {
   const env = getEnv();
+  const aiProvider = isAiProvider(env.AI_PROVIDER) ? env.AI_PROVIDER : "openai";
+  const p = AI_PROVIDERS[aiProvider];
   return {
     openReg: true,
     domains: "",
-    aiBaseUrl: env.AI_BASE_URL || "https://api.openai.com/v1",
-    model: env.AI_MODEL || "gpt-5-mini",
+    aiProvider,
+    aiBaseUrl: env.AI_BASE_URL || p.baseUrl,
+    model: env.AI_MODEL || p.model,
     models: [],
-    rateInput: 0.25,
-    rateCached: 0.025,
-    rateOutput: 2,
+    ...p.rates,
     cap: 100,
     capOn: true,
     concurrency: 3,
     retention: 180,
-    sendImages: true,
+    sendImages: false,
+    sendInteractive: false,
     reasoningEffort: "",
   };
 }
@@ -88,8 +95,13 @@ export async function saveSettings(patch: Partial<SiteSettings> & { aiApiKey?: s
   }
 }
 
-export function costOf(u: { input: number; cached: number; output: number }, s: Pick<SiteSettings, "rateInput" | "rateCached" | "rateOutput">) {
-  return ((Math.max(0, u.input - u.cached) * s.rateInput + u.cached * s.rateCached + u.output * s.rateOutput) / 1e6) || 0;
+/** Cache writes (only the Anthropic client reports them) cost 1.25 times the input rate. They are already counted once in `input`. */
+export function costOf(
+  u: { input: number; cached: number; cacheWrite?: number; output: number },
+  s: Pick<SiteSettings, "rateInput" | "rateCached" | "rateOutput">,
+) {
+  const writePremium = (u.cacheWrite ?? 0) * s.rateInput * 0.25;
+  return ((Math.max(0, u.input - u.cached) * s.rateInput + writePremium + u.cached * s.rateCached + u.output * s.rateOutput) / 1e6) || 0;
 }
 
 export function monthStartIso(d = new Date()): string {

@@ -141,10 +141,30 @@ function stripHtml(html: string): string {
 
 export type AiImage = { mime: string; data: string; label: string };
 
-/** Text rendering of a notebook for the model, with a [C#] marker on every cell. */
+/** Output formats that need a browser to show anything, and what to call them. */
+const INTERACTIVE: [RegExp, string][] = [
+  [/^application\/vnd\.jupyter\.widget-view\+json$/, "widget"],
+  [/^application\/vnd\.plotly\./, "Plotly chart"],
+  [/^application\/vnd\.bokehjs_/, "Bokeh plot"],
+  [/^application\/vnd\.holoviews_/, "HoloViews plot"],
+  [/^application\/vnd\.vega(lite)?\./, "Vega chart"],
+  [/^(application|text)\/javascript$/, "JavaScript output"],
+];
+
+function interactiveKind(d: Record<string, unknown>): string | null {
+  for (const mime of Object.keys(d)) for (const [re, kind] of INTERACTIVE) if (re.test(mime)) return kind;
+  if (d["text/html"] && /<(script|iframe)\b/i.test(joinText(d["text/html"]))) return "interactive HTML output";
+  return null;
+}
+
+/**
+ * Text rendering of a notebook for the model, with a [C#] marker on every cell.
+ * Images beyond `maxImages`, and interactive outputs unless `interactive` is set,
+ * are replaced with a short note so they don't use up tokens.
+ */
 export function notebookForAI(
   nb: Notebook,
-  opts: { maxChars?: number; maxImages?: number } = {},
+  opts: { maxChars?: number; maxImages?: number; interactive?: boolean } = {},
 ): { text: string; images: AiImage[]; refs: Record<string, string> } {
   const maxChars = opts.maxChars ?? 120_000;
   const maxImages = opts.maxImages ?? 6;
@@ -172,15 +192,19 @@ export function notebookForAI(
         } else if (o.data) {
           const d = o.data as Record<string, unknown>;
           const img = ["image/png", "image/jpeg"].find((m) => typeof d[m] === "string" || Array.isArray(d[m]));
-          if (img) {
-            if (images.length < maxImages) {
-              const n = images.length + 1;
-              images.push({ mime: img, data: joinText(d[img]).replace(/\s+/g, ""), label: `image ${n} (output of ${ref})` });
-              outs.push(`[image output: attached as image ${n}]`);
-            } else outs.push("[image output, not attached]");
+          const kind = interactiveKind(d);
+          if (img && images.length < maxImages) {
+            const n = images.length + 1;
+            images.push({ mime: img, data: joinText(d[img]).replace(/\s+/g, ""), label: `image ${n} (output of ${ref})` });
+            outs.push(`[image output: attached as image ${n}]`);
+          } else if (kind && !opts.interactive) outs.push(`[${kind}, not shown to you]`);
+          else if (img) {
+            // A short repr such as "<Figure size 640x480 with 2 Axes>" still says what was drawn.
+            const plain = joinText(d["text/plain"]).trim();
+            outs.push(`[image output, not shown to you${plain && plain.length <= 200 ? `: ${plain}` : ""}]`);
           } else if (d["text/plain"]) outs.push(truncate(joinText(d["text/plain"]), 2000));
           else if (d["text/html"]) outs.push(truncate(stripHtml(joinText(d["text/html"])), 2000));
-          else if (d["image/svg+xml"]) outs.push("[SVG image output]");
+          else if (d["image/svg+xml"]) outs.push("[SVG image output, not shown to you]");
         }
       }
       if (outs.length) block += `Output of ${ref}:\n${outs.join("\n")}\n`;

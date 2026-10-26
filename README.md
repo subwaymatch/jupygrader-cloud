@@ -2,7 +2,7 @@
 
 AI-assisted grading for Jupyter notebooks and other student work, running entirely on Cloudflare.
 
-Teachers set up an assignment with instructions, a rubric and an optional answer key, drop in the students' files (or a `.zip`), and an OpenAI-compatible model grades each file in the background. Graders review the results next to the notebook, change any score, and send each student a private link. Feedback can be downloaded as the original notebook with the comments inserted as cells.
+Teachers set up an assignment with instructions, a rubric and an optional answer key, drop in the students' files (or a `.zip`), and an AI model (Claude through the Anthropic API, or any OpenAI-compatible model) grades each file in the background. Graders review the results next to the notebook, change any score, and send each student a private link. Feedback can be downloaded as the original notebook with the comments inserted as cells.
 
 ## Features
 
@@ -13,7 +13,7 @@ Teachers set up an assignment with instructions, a rubric and an optional answer
 - **Review.** A split view with the rendered notebook on the left and the scores on the right. Low-confidence grades and close matches are flagged. Edit any rubric line (the AI's score stays visible and every change is in the history), override the total, mark files reviewed. Keyboard shortcuts: <kbd>J</kbd>/<kbd>K</kbd> next and previous, <kbd>R</kbd> reviewed, <kbd>E</kbd> edit total, <kbd>Esc</kbd> close.
 - **Feedback into the notebook.** Downloads insert a summary cell at the top and a `> **Feedback:**` Markdown cell after each commented cell, keeping every original cell, output and piece of metadata. Feedback cells are tagged (`jupygrader-feedback`), so grading a notebook that already has feedback replaces it instead of stacking it. Code files get feedback as comments in the file's own comment syntax; Markdown and text files get it after each paragraph. HTML, plain-text and JSON exports are available too, for one file or a `.zip` of many, plus a grades CSV.
 - **Student links.** A private page per file with the score, rubric, and the work with inline comments. Links can be turned off or replaced. Students don't need accounts.
-- **Admin.** Overview of what needs attention, users and roles, invitations, an activity log, and site settings (AI endpoint, encrypted API key, model, token rates, spending cap, concurrency, data retention).
+- **Admin.** Overview of what needs attention, users and roles, invitations, an activity log, and site settings (AI provider and endpoint, encrypted API key, model, token rates, spending cap, concurrency, data retention).
 - **Works on phones.** The sidebar becomes a slide-in menu, tables become cards, and the review drawer switches between Feedback and File tabs.
 
 ## Stack
@@ -26,7 +26,7 @@ Teachers set up an assignment with instructions, a rubric and an optional answer
 | Data | Cloudflare D1 (SQLite) |
 | Files | Cloudflare R2: submissions, instruction and rubric documents, answer keys |
 | Jobs | Cloudflare Queues for grading, Cron Triggers for recovery and retention |
-| AI | Any OpenAI-compatible Chat Completions API, with structured outputs (falls back to JSON mode) |
+| AI | The Anthropic Messages API (structured outputs, adaptive thinking, prompt caching) or any OpenAI-compatible Chat Completions API (structured outputs, falls back to JSON mode) |
 | Email | [Resend](https://resend.com), optional |
 
 ```
@@ -35,7 +35,7 @@ Browser ──> Worker (worker/index.ts)
               │               ├─ D1  (users, courses, assignments, submissions, activity, usage)
               │               ├─ R2  (files)
               │               └─ Queue producer (one message per file to grade)
-              ├─ queue:     grading consumer ──> OpenAI-compatible API
+              ├─ queue:     grading consumer ──> Anthropic or OpenAI-compatible API
               └─ scheduled: every minute, requeue interrupted jobs (or grade directly
                             when no queue is bound); daily, delete files past retention
 ```
@@ -51,7 +51,7 @@ npm run db:migrate:local                # creates the local D1 database
 npm run dev                             # http://localhost:5173
 ```
 
-Open the app and create the first account: it becomes the administrator. Then open **Admin > Settings**, enter the API address (for example `https://api.openai.com/v1`), an API key and a model, and click **Test saved settings**.
+Open the app and create the first account: it becomes the administrator. Then open **Admin > Settings**, choose a provider (Anthropic or OpenAI-compatible), check the API address it fills in (`https://api.anthropic.com` or, for example, `https://api.openai.com/v1`), enter an API key and a model, and click **Test saved settings**.
 
 Local D1, R2 and the queue are simulated by Miniflare and stored in `.wrangler/state`. Cron handlers can be triggered with:
 
@@ -108,14 +108,15 @@ The queue is optional. Remove the `queues` block from `wrangler.jsonc` and the e
 | `BETTER_AUTH_SECRET` | secret, required | Signs sessions and encrypts the AI API key stored in D1. Changing it signs everyone out and makes the stored API key unreadable (enter it again in Settings). |
 | `APP_URL` | var | Public URL of the app. |
 | `RESEND_API_KEY`, `EMAIL_FROM` | secrets, optional | Send email through Resend. |
+| `AI_PROVIDER` | optional | `anthropic` or `openai` (the default). Picks the default address, model and token rates. |
 | `AI_BASE_URL`, `AI_API_KEY`, `AI_MODEL` | optional | Defaults for the AI settings. Values saved in Admin > Settings take precedence. |
 
-Everything else (registration, allowed email domains, model, token rates for cost estimates, spending cap, concurrency, retention, reasoning effort, sending plots to the AI) is set by an admin in the app.
+Everything else (registration, allowed email domains, model, token rates for cost estimates, spending cap, concurrency, retention, reasoning effort, sending plots and interactive outputs to the AI) is set by an admin in the app.
 
 ## How grading works
 
 1. Each uploaded file is stored in R2, fingerprinted (SHA-256 for exact duplicates, MinHash for close matches) and queued.
-2. The queue consumer claims the file (an atomic status change, so a job never runs twice), checks the concurrency limit and spending cap, and builds the prompt: instructions, rubric, answer key (marked confidential), notes, and the file rendered with markers. Notebook cells are `[C1]`, `[C2]`…; code files are numbered lines (`L12-18`); documents are paragraphs (`[P3]`). Up to 6 notebook plots are attached as low-detail images. The file name is not sent.
+2. The queue consumer claims the file (an atomic status change, so a job never runs twice), checks the concurrency limit and spending cap, and builds the prompt: instructions, rubric, answer key (marked confidential), notes, and the file rendered with markers. Notebook cells are `[C1]`, `[C2]`…; code files are numbered lines (`L12-18`); documents are paragraphs (`[P3]`). Notebook plots and interactive outputs (widgets, Plotly, Bokeh, Vega) are replaced with a short note by default, since they use many tokens; admins can turn on sending up to 6 plots as images (low detail on OpenAI-compatible APIs) and the text form of interactive outputs. The file name is not sent. Everything before the file is the same for each file of an assignment; on the Anthropic API that part is cached, so later files in a batch are billed at the cache-read rate for it.
 3. The model returns JSON matching a schema: a score, comment and cited markers for each rubric item, inline comments, a summary, and a confidence signal. The reply is validated: scores are clamped to each item's maximum in half points, unknown markers are dropped, and the total is scaled to the assignment's points.
 4. Token usage from the API is recorded with an estimated cost. Each grade stores the rubric version, style and model, so changing the setup marks older grades as "graded with earlier settings" until they're regraded.
 
