@@ -108,8 +108,13 @@ The queue is optional. Remove the `queues` block from `wrangler.jsonc` and the e
 "Notebook as HTML" downloads, for graders and through student links, are rendered by Jupyter's own nbconvert (the JupyterLab template) running in a [Cloudflare Container](https://developers.cloudflare.com/containers/). The graded notebook, with its feedback cells, is sent to the container and the HTML is streamed back. Markdown and outputs are sanitized: scripts, frames, event handlers and `javascript:` links from student work are removed. If the container can't be reached, downloads use the built-in HTML instead. Bulk `.zip` downloads always use the built-in HTML.
 
 - **Plan:** Containers need the [Workers Paid plan](https://developers.cloudflare.com/workers/platform/pricing/) ($5 per month).
-- **Deploying:** `npm run deploy` builds the image from `containers/nbconvert/Dockerfile`, so Docker must be running (Docker Desktop works on Windows). [Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/) can build it for you instead. To deploy without the container, remove the `containers` block from `wrangler.jsonc`.
-- **Local development:** `npm run dev` doesn't start the container (`dev.enable_containers` is `false`), so downloads use the built-in HTML. Set it to `true` to run nbconvert locally; this needs Docker, and WSL on Windows.
+- **Deploying:** the image is built ahead of time and pushed to your account's Cloudflare registry, and `wrangler.jsonc` refers to it by tag (`registry.cloudflare.com/jupygrader-nbconvert:<tag>`). Deploys, including [Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/), only reference it, so they don't need Docker. To deploy without the container, remove the `containers` block from `wrangler.jsonc`.
+- **Changing the image:** edit `containers/nbconvert`, choose a new tag (for example `7.17.2-2`), and push the image under that tag before you merge, in one of two ways:
+  - From a machine with Docker, after `npx wrangler login`: `npx wrangler containers build containers/nbconvert -t jupygrader-nbconvert:<tag> -p`.
+  - From GitHub: run the **nbconvert image** workflow (**Actions** tab, **Run workflow**) with the tag. It needs two repository secrets: `CLOUDFLARE_ACCOUNT_ID`, and `CLOUDFLARE_API_TOKEN` with the Workers Containers Edit permission.
+
+  Then set the new tag in `wrangler.jsonc` and merge. If the image isn't pushed first, the deploy's container step fails.
+- **Local development:** `npm run dev` doesn't start the container (`dev.enable_containers` is `false`), so downloads use the built-in HTML. To run nbconvert locally, set it to `true` and point `image` at `./containers/nbconvert/Dockerfile`; this needs Docker, and WSL on Windows.
 - **Size and cost:** the container is a `basic` instance (1/4 vCPU, 1 GiB). It starts on the first conversion, which takes several seconds, and stops after 5 idle minutes. A typical notebook converts in about a second once it's running. Memory, disk and CPU are billed only while it runs, and typical use fits in the Workers Paid plan's included usage.
 
 ### Configuration
