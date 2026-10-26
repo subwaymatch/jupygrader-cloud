@@ -85,6 +85,7 @@ export function SubmissionsTab({
   const [staged, setStaged] = useState<Staged[] | null>(null);
   const [regrade, setRegrade] = useState(false);
   const [staging, setStaging] = useState(false);
+  const [stageProgress, setStageProgress] = useState("");
   const [pending, setPending] = useState<Pending[]>([]);
   const [resultsOpen, setResultsOpen] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -151,11 +152,12 @@ export function SubmissionsTab({
     setStaging(true);
     try {
       setRegrade(false);
-      setStaged(await stageFiles(asg.id, files));
+      setStaged(await stageFiles(asg.id, files, (done, total) => setStageProgress(`Reading ${done} of ${total}`)));
     } catch (err) {
       toast(errorMessage(err), { error: true });
     } finally {
       setStaging(false);
+      setStageProgress("");
     }
   }
   useEffect(() => {
@@ -327,7 +329,7 @@ export function SubmissionsTab({
               <span className="dropzone__title">{dragging ? "Release to upload" : "Drop files here"}</span>
               <span className="muted">Notebooks, code, documents or images. Archives (.zip) are unpacked.</span>
               <Button variant="secondary" icon="folderOpen" onClick={() => fileRef.current?.click()} loading={staging} style={{ marginTop: 6 }}>
-                Browse files
+                {stageProgress || "Browse files"}
               </Button>
             </div>
           ) : (
@@ -340,7 +342,7 @@ export function SubmissionsTab({
                 </span>
               </span>
               <Button variant="secondary" size="sm" icon="folderOpen" onClick={() => fileRef.current?.click()} loading={staging}>
-                Browse files
+                {stageProgress || "Browse files"}
               </Button>
             </div>
           )}

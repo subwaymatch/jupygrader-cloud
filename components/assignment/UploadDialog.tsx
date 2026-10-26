@@ -24,6 +24,7 @@ export function UploadDialog({
   const ok = list.filter((s) => s.status === "ok").length;
   const dups = list.filter((s) => s.status === "dup").length;
   const errs = list.filter((s) => s.status === "error").length;
+  const skipped = list.filter((s) => s.status === "skip").length;
   const toGrade = ok + (regrade ? dups : 0);
   const uploads = ok + dups;
   const groups = new Map<string, Staged[]>();
@@ -34,6 +35,7 @@ export function UploadDialog({
   const sub = [
     ok && `${plural(ok, "file")} ready`,
     dups && `${plural(dups, "duplicate")}`,
+    skipped && `${skipped} skipped`,
     errs && `${plural(errs, "file")} can't be uploaded`,
   ]
     .filter(Boolean)
@@ -83,6 +85,7 @@ export function UploadDialog({
               <div className="upload-item" key={i}>
                 {s.status === "ok" && <Icon name="checkCircle" size={15} style={{ color: "var(--c-success-text)" }} />}
                 {s.status === "dup" && <Icon name="copy" size={15} style={{ color: "var(--c-warning)" }} />}
+                {s.status === "skip" && <Icon name="minus" size={15} style={{ color: "var(--c-muted)" }} />}
                 {s.status === "error" && <Icon name="alertCircle" size={15} style={{ color: "var(--c-danger-text)" }} />}
                 <div className="grow">
                   <div className="upload-item__name" title={s.name}>
