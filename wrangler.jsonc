@@ -14,7 +14,7 @@
   },
   "vars": {
     // Public URL of the deployment, used for links in emails. `npm run dev` uses .dev.vars instead.
-    "APP_URL": "https://jupygrader-cloud.subwaymatch.workers.dev"
+    "APP_URL": "https://jupygrader.com"
   },
   "d1_databases": [
     {
