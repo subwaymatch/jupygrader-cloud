@@ -48,12 +48,14 @@
     "crons": ["* * * * *", "17 3 * * *"]
   },
   // nbconvert renders "Notebook as HTML" downloads (containers/nbconvert, worker/nbconvert.ts).
-  // Containers need the Workers Paid plan, and `npm run deploy` needs Docker to build the image.
+  // Containers need the Workers Paid plan. The image is built from containers/nbconvert and pushed
+  // to this account's Cloudflare registry ahead of time, so deploys (including Workers Builds,
+  // which has no Docker) don't build it. To change it, see "nbconvert container" in the README.
   // Without the container, downloads use the built-in HTML instead.
   "containers": [
     {
       "class_name": "Nbconvert",
-      "image": "./containers/nbconvert/Dockerfile",
+      "image": "registry.cloudflare.com/jupygrader-nbconvert:7.17.2-1",
       "instance_type": "basic",
       "max_instances": 2
     }
@@ -65,7 +67,9 @@
     "Nbconvert": { "type": "durable-object", "storage": "sqlite" }
   },
   "dev": {
-    // Running the container locally needs Docker (and WSL on Windows). Set to true to try it.
+    // Running the container locally needs Docker (and WSL on Windows). To try it, set this to true
+    // and point "image" above at ./containers/nbconvert/Dockerfile, since vite dev can't pull
+    // from the Cloudflare registry.
     "enable_containers": false
   },
   "observability": { "enabled": true }
