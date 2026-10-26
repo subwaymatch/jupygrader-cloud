@@ -47,5 +47,26 @@
     // Daily: delete submissions past the retention period and archive ended courses.
     "crons": ["* * * * *", "17 3 * * *"]
   },
+  // nbconvert renders "Notebook as HTML" downloads (containers/nbconvert, worker/nbconvert.ts).
+  // Containers need the Workers Paid plan, and `npm run deploy` needs Docker to build the image.
+  // Without the container, downloads use the built-in HTML instead.
+  "containers": [
+    {
+      "class_name": "Nbconvert",
+      "image": "./containers/nbconvert/Dockerfile",
+      "instance_type": "basic",
+      "max_instances": 2
+    }
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "NBCONVERT", "class_name": "Nbconvert" }]
+  },
+  "exports": {
+    "Nbconvert": { "type": "durable-object", "storage": "sqlite" }
+  },
+  "dev": {
+    // Running the container locally needs Docker (and WSL on Windows). Set to true to try it.
+    "enable_containers": false
+  },
   "observability": { "enabled": true }
 }

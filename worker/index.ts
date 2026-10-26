@@ -1,6 +1,9 @@
 import handler from "vinext/server/fetch-handler";
 import { cronTick, processSubmission, retentionSweep } from "@/lib/server/grading";
 
+// Durable Object that runs nbconvert in a container, for "Notebook as HTML" downloads.
+export { Nbconvert } from "./nbconvert";
+
 type GradingMessage = { submissionId: string };
 
 export default {

@@ -28,13 +28,15 @@ Teachers set up an assignment with instructions, a rubric and an optional answer
 | Jobs | Cloudflare Queues for grading, Cron Triggers for recovery and retention |
 | AI | The Anthropic Messages API (structured outputs, adaptive thinking, prompt caching) or any OpenAI-compatible Chat Completions API (structured outputs, falls back to JSON mode) |
 | Email | [Resend](https://resend.com), optional |
+| Notebook HTML | [nbconvert](https://nbconvert.readthedocs.io) in a [Cloudflare Container](https://developers.cloudflare.com/containers/), optional |
 
 ```
 Browser ──> Worker (worker/index.ts)
               ├─ fetch:     vinext pages, server components and /api routes
               │               ├─ D1  (users, courses, assignments, submissions, activity, usage)
               │               ├─ R2  (files)
-              │               └─ Queue producer (one message per file to grade)
+              │               ├─ Queue producer (one message per file to grade)
+              │               └─ Durable Object + Container (nbconvert, for notebook HTML downloads)
               ├─ queue:     grading consumer ──> Anthropic or OpenAI-compatible API
               └─ scheduled: every minute, requeue interrupted jobs (or grade directly
                             when no queue is bound); daily, delete files past retention
@@ -101,6 +103,15 @@ To serve the app on your own domain, add a [custom domain](https://developers.cl
 
 The queue is optional. Remove the `queues` block from `wrangler.jsonc` and the every-minute Cron Trigger grades queued files instead, up to the "Files graded at once" setting per minute. Grading is slower to start but nothing else changes.
 
+### nbconvert container
+
+"Notebook as HTML" downloads, for graders and through student links, are rendered by Jupyter's own nbconvert (the JupyterLab template) running in a [Cloudflare Container](https://developers.cloudflare.com/containers/). The graded notebook, with its feedback cells, is sent to the container and the HTML is streamed back. Markdown and outputs are sanitized: scripts, frames, event handlers and `javascript:` links from student work are removed. If the container can't be reached, downloads use the built-in HTML instead. Bulk `.zip` downloads always use the built-in HTML.
+
+- **Plan:** Containers need the [Workers Paid plan](https://developers.cloudflare.com/workers/platform/pricing/) ($5 per month).
+- **Deploying:** `npm run deploy` builds the image from `containers/nbconvert/Dockerfile`, so Docker must be running (Docker Desktop works on Windows). [Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/) can build it for you instead. To deploy without the container, remove the `containers` block from `wrangler.jsonc`.
+- **Local development:** `npm run dev` doesn't start the container (`dev.enable_containers` is `false`), so downloads use the built-in HTML. Set it to `true` to run nbconvert locally; this needs Docker, and WSL on Windows.
+- **Size and cost:** the container is a `basic` instance (1/4 vCPU, 1 GiB). It starts on the first conversion, which takes several seconds, and stops after 5 idle minutes. A typical notebook converts in about a second once it's running. Memory, disk and CPU are billed only while it runs, and typical use fits in the Workers Paid plan's included usage.
+
 ### Configuration
 
 | Name | Kind | Purpose |
@@ -135,6 +146,8 @@ lib/shared/             code shared by browser and Worker: rubric, notebook, exp
 lib/server/             Worker-only code: auth, access control, grading, storage
 migrations/             D1 schema
 worker/index.ts         Worker entry: fetch (vinext), queue and scheduled handlers
+worker/nbconvert.ts     Durable Object that runs the nbconvert container
+containers/nbconvert/   nbconvert container: Dockerfile and HTTP server
 test/                   unit tests (Vitest)
 ```
 
