@@ -48,16 +48,22 @@
     "crons": ["* * * * *", "17 3 * * *"]
   },
   // nbconvert renders "Notebook as HTML" downloads (containers/nbconvert, worker/nbconvert.ts).
-  // Containers need the Workers Paid plan. The image is built from containers/nbconvert and pushed
-  // to this account's Cloudflare registry ahead of time, so deploys (including Workers Builds,
-  // which has no Docker) don't build it. To change it, see "nbconvert container" in the README.
-  // Without the container, downloads use the built-in HTML instead.
+  // Containers need the Workers Paid plan. This account only allows the durable_object scheduling
+  // policy, so worker/nbconvert.ts picks the image and instance size when it starts the container.
+  // The image is built from containers/nbconvert and pushed to this account's Cloudflare registry
+  // ahead of time, so deploys (including Workers Builds, which has no Docker) don't build it. To
+  // change it, see "nbconvert container" in the README. Without the container, downloads use the
+  // built-in HTML instead.
   "containers": [
     {
       "class_name": "Nbconvert",
-      "image": "registry.cloudflare.com/jupygrader-nbconvert:7.17.2-1",
-      "instance_type": "basic",
-      "max_instances": 2
+      "scheduling_policy": "durable_object",
+      "images": {
+        "nbconvert": {
+          // jupygrader-nbconvert:7.17.2-1
+          "image": "registry.cloudflare.com/1739340826a42e1131ca2f53210cbdd4/jupygrader-nbconvert@sha256:795798a8f9232e3d65a8ea29c7faef0c68b301102369a3f6c91366236ac71264"
+        }
+      }
     }
   ],
   "durable_objects": {
@@ -68,8 +74,8 @@
   },
   "dev": {
     // Running the container locally needs Docker (and WSL on Windows). To try it, set this to true
-    // and point "image" above at ./containers/nbconvert/Dockerfile, since vite dev can't pull
-    // from the Cloudflare registry.
+    // and replace "image" above with "dockerfile": "./containers/nbconvert/Dockerfile", since
+    // vite dev can't pull from the Cloudflare registry.
     "enable_containers": false
   },
   "observability": { "enabled": true }

@@ -1,6 +1,6 @@
 # Builds the nbconvert container image (containers/nbconvert) and pushes it to the
 # Cloudflare registry, so deploys can use it without Docker. Run it from the Actions tab
-# before merging a change that sets a new tag in wrangler.jsonc. See "nbconvert container"
+# before merging a change that points wrangler.jsonc at a new image. See "nbconvert container"
 # in the README.
 name: nbconvert image
 
@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Image tag to push, matching wrangler.jsonc (for example 7.17.2-2)
+        description: Image tag to push (for example 7.17.2-2)
         required: true
 
 permissions:
@@ -28,4 +28,12 @@ jobs:
         env:
           TAG: ${{ inputs.tag }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # wrangler.jsonc pins the image by digest; show the reference to paste there.
+      - run: |
+          ref=$(docker image inspect "registry.cloudflare.com/${CLOUDFLARE_ACCOUNT_ID}/jupygrader-nbconvert:${TAG}" --format '{{index .RepoDigests 0}}')
+          echo "Put this in wrangler.jsonc: \`$ref\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "$ref"
+        env:
+          TAG: ${{ inputs.tag }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
