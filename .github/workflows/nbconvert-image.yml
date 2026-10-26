@@ -31,7 +31,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       # wrangler.jsonc pins the image by digest; show the reference to paste there.
       - run: |
-          ref=$(docker image inspect "registry.cloudflare.com/${CLOUDFLARE_ACCOUNT_ID}/jupygrader-nbconvert:${TAG}" --format '{{index .RepoDigests 0}}')
+          ref=$(docker image inspect "registry.cloudflare.com/${CLOUDFLARE_ACCOUNT_ID}/jupygrader-nbconvert:${TAG}" --format '{{range .RepoDigests}}{{println .}}{{end}}' | grep '^registry.cloudflare.com/' | head -n 1)
           echo "Put this in wrangler.jsonc: \`$ref\`" >> "$GITHUB_STEP_SUMMARY"
           echo "$ref"
         env:

@@ -9,6 +9,7 @@ The Worker reaches this server only through the Nbconvert Durable Object
 
 import logging
 import re
+import socketserver
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -115,6 +116,15 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
 
+class Server(ThreadingHTTPServer):
+    def server_bind(self) -> None:
+        # HTTPServer.server_bind looks up the host's fully qualified name, which raises
+        # UnicodeEncodeError on Cloudflare Containers: the hostname is a 64-character
+        # label, longer than DNS allows. The name is only used for CGI, so skip it.
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = "localhost", self.server_address[1]
+
+
 if __name__ == "__main__":
     log.info("listening on %d", PORT)
-    ThreadingHTTPServer(("0.0.0.0", PORT), Handler).serve_forever()
+    Server(("0.0.0.0", PORT), Handler).serve_forever()

@@ -60,8 +60,8 @@
       "scheduling_policy": "durable_object",
       "images": {
         "nbconvert": {
-          // jupygrader-nbconvert:7.17.2-1
-          "image": "registry.cloudflare.com/1739340826a42e1131ca2f53210cbdd4/jupygrader-nbconvert@sha256:795798a8f9232e3d65a8ea29c7faef0c68b301102369a3f6c91366236ac71264"
+          // jupygrader-nbconvert:7.17.2-2
+          "image": "registry.cloudflare.com/1739340826a42e1131ca2f53210cbdd4/jupygrader-nbconvert@sha256:a6cc776fc0ef3f753a4fa74b8999ea72732ca2e9421588bb94d7b56cbb54df26"
         }
       }
     }
