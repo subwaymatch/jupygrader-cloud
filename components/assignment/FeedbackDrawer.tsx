@@ -223,11 +223,11 @@ export function FeedbackDrawer({
               </div>
             </div>
             <div className="fb-mobile-tabs">
-              <div className="pills" role="tablist" style={{ width: "100%", display: "flex" }}>
-                <button role="tab" className="pill grow" style={{ justifyContent: "center" }} aria-selected={mobileTab === "feedback"} onClick={() => setMobileTab("feedback")}>
+              <div className="pills pills--fill" role="tablist">
+                <button role="tab" className="pill" aria-selected={mobileTab === "feedback"} onClick={() => setMobileTab("feedback")}>
                   Feedback
                 </button>
-                <button role="tab" className="pill grow" style={{ justifyContent: "center" }} aria-selected={mobileTab === "file"} onClick={() => setMobileTab("file")}>
+                <button role="tab" className="pill" aria-selected={mobileTab === "file"} onClick={() => setMobileTab("file")}>
                   File
                 </button>
               </div>

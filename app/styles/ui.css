@@ -720,6 +720,16 @@
   padding: 0;
   gap: 4px;
 }
+/* Full width, with the pills sharing it equally. */
+.pills--fill {
+  display: flex;
+  width: 100%;
+}
+.pills--fill .pill {
+  flex: 1;
+  min-width: 0;
+  justify-content: center;
+}
 .pill {
   flex: none;
   display: inline-flex;

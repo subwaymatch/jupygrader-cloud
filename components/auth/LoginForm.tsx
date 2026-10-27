@@ -48,12 +48,11 @@ export function LoginForm({ next, initialError, openReg }: { next?: string; init
     <>
       <form className="auth-card" onSubmit={submit} noValidate>
         <h1 className="auth-card__title">Sign in</h1>
-        <div className="pills" role="tablist" style={{ display: "flex" }}>
+        <div className="pills pills--fill" role="tablist">
           <button
             type="button"
             role="tab"
-            className="pill grow"
-            style={{ justifyContent: "center" }}
+            className="pill"
             aria-selected={method === "password"}
             onClick={() => {
               setMethod("password");
@@ -67,8 +66,7 @@ export function LoginForm({ next, initialError, openReg }: { next?: string; init
           <button
             type="button"
             role="tab"
-            className="pill grow"
-            style={{ justifyContent: "center" }}
+            className="pill"
             aria-selected={method === "magic"}
             onClick={() => {
               setMethod("magic");
