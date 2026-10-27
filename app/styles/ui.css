@@ -163,6 +163,7 @@
 .act:hover {
   background: var(--c-hover);
   color: var(--c-text);
+  text-decoration: none;
 }
 .act--icon {
   width: 30px;
