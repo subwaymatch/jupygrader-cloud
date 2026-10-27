@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/client/api";
+import { onChange } from "@/lib/client/sync";
 import type { QueueInfo } from "@/lib/server/queue-info";
 import type { SubmissionListItem } from "@/lib/shared/types";
 
@@ -28,6 +29,9 @@ export function useSubmissions(assignmentId: string, initial: ListResponse, onBa
       return null;
     }
   }, [assignmentId]);
+
+  // Feedback pages in other tabs announce grade changes.
+  useEffect(() => onChange(assignmentId, () => void refresh()), [assignmentId, refresh]);
 
   const active = data.items.some((s) => s.status === "queued" || s.status === "grading") || uploading > 0;
 

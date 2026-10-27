@@ -10,11 +10,11 @@ import { Icon } from "@/components/ui/Icon";
 import { ActionMenu } from "@/components/ui/Menu";
 import { toast } from "@/components/ui/Toast";
 import { api, copyText, downloadUrl, errorMessage } from "@/lib/client/api";
+import { saveOrder } from "@/lib/client/sync";
 import { STYLES } from "@/lib/shared/constants";
 import { plural } from "@/lib/shared/format";
 import type { AssignmentData, SubmissionListItem } from "@/lib/shared/types";
 import { InstructionsTab, RubricTab, SettingsTab } from "./EditTabs";
-import { FeedbackDrawer } from "./FeedbackDrawer";
 import { SubmissionsTab } from "./SubmissionsTab";
 import { useSubmissions, type ListResponse } from "./useSubmissions";
 
@@ -57,9 +57,7 @@ export function AssignmentView({
   const confirm = useConfirm();
   const [asg, setAsg] = useState(initialAsg);
   const tab = (params.get("tab") as Tab) || "submissions";
-  const drawerId = params.get("file");
   const list = useSubmissions(asg.id, initialList, (items) => notifyDone(asg.title, items));
-  const [order, setOrder] = useState<string[]>([]);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [dropped, setDropped] = useState<File[] | null>(null);
@@ -81,7 +79,8 @@ export function AssignmentView({
   );
 
   const goTab = (t: Tab) => setParam("tab", t === "submissions" ? null : t);
-  const onOrderChange = useCallback((ids: string[]) => setOrder(ids), []);
+  // Feedback pages follow the table's order for J and K.
+  const onOrderChange = useCallback((ids: string[]) => saveOrder(asg.id, ids), [asg.id]);
 
   async function rename() {
     if (renaming === null) return;
@@ -303,7 +302,6 @@ export function AssignmentView({
             asg={asg}
             canGrade={canUpload}
             list={list}
-            openDrawer={(id) => setParam("file", id)}
             dragging={dragging}
             setDragging={setDragging}
             droppedFiles={dropped}
@@ -317,17 +315,6 @@ export function AssignmentView({
       {tab === "settings" && <SettingsTab asg={asg} canEdit={canEdit} model={model} onSaved={(a) => (setAsg(a), list.refresh())} />}
 
       {dragging && items.length > 0 && tab === "submissions" && <div className="drop-overlay">Release to upload to {asg.title}</div>}
-
-      <FeedbackDrawer
-        id={drawerId}
-        order={order.length ? order : items.map((s) => s.id)}
-        onNavigate={(id) => setParam("file", id)}
-        onClose={() => setParam("file", null)}
-        onChanged={() => list.refresh()}
-        canGrade={canUpload}
-        version={list.data.version}
-        model={model}
-      />
     </div>
   );
 }

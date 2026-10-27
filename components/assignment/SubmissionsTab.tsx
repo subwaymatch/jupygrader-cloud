@@ -41,6 +41,10 @@ const TABS: { id: Tab; label: string; icon: IconName; test: (s: SubmissionListIt
 const KIND_LABEL: Record<FileKind, string> = { notebook: "Notebooks", code: "Code", doc: "Documents", data: "Data", image: "Images", other: "Other" };
 const STATUS_ORDER = { grading: 0, queued: 1, failed: 2, graded: 3, skipped: 4, cancelled: 5 } as const;
 
+const fileHref = (id: string) => `/submissions/${id}`;
+// Feedback opens in a new tab (app/submissions/[id]).
+const openFile = (id: string) => window.open(fileHref(id), "_blank");
+
 function newBatchId() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
@@ -51,7 +55,6 @@ export function SubmissionsTab({
   asg,
   canGrade,
   list,
-  openDrawer,
   dragging,
   setDragging,
   droppedFiles,
@@ -61,7 +64,6 @@ export function SubmissionsTab({
   asg: AssignmentData;
   canGrade: boolean;
   list: ReturnType<typeof useSubmissions>;
-  openDrawer: (id: string) => void;
   dragging: boolean;
   setDragging: (v: boolean) => void;
   droppedFiles: File[] | null;
@@ -134,7 +136,7 @@ export function SubmissionsTab({
   const pg = pageSlice(rows, page, 25);
   useEffect(() => setPage(1), [tab, search, lo, hi, review, kinds, hash]);
 
-  // Keep the drawer's J/K order in sync with the table.
+  // Keep the feedback pages' J/K order in sync with the table.
   useEffect(() => {
     onOrderChange(rows.map((r) => r.id));
   }, [rows, onOrderChange]);
@@ -237,7 +239,7 @@ export function SubmissionsTab({
   }
 
   function rowMenu(s: SubmissionListItem): MenuEntry[] {
-    const out: MenuEntry[] = [{ label: s.status === "graded" ? "Open feedback" : "Open file", icon: "eye", onClick: () => openDrawer(s.id) }];
+    const out: MenuEntry[] = [{ label: s.status === "graded" ? "Open feedback" : "Open file", icon: "eye", onClick: () => openFile(s.id) }];
     if (s.shareToken)
       out.push({ label: "Copy student link", icon: "link", onClick: async () => toast((await copyText(studentLink(s))) ? "Student link copied" : "Couldn't copy the link") });
     if (canGrade) {
@@ -622,7 +624,7 @@ export function SubmissionsTab({
                   data-selected={sel.has(s.id)}
                   onClick={(e) => {
                     if ((e.target as HTMLElement).closest("button, a, input, [role=checkbox], [role=menu]")) return;
-                    openDrawer(s.id);
+                    openFile(s.id);
                   }}
                 >
                   <span onClick={(e) => e.stopPropagation()}>
@@ -666,10 +668,10 @@ export function SubmissionsTab({
                     <div className="act-group" role="group">
                       {s.status === "graded" && (
                         <>
-                          <button className="act" onClick={() => openDrawer(s.id)}>
+                          <a className="act" href={fileHref(s.id)} target="_blank" rel="noopener">
                             <Icon name="messageText" size={15} />
                             Feedback
-                          </button>
+                          </a>
                           <span className="sep" />
                         </>
                       )}

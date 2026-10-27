@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { AssignmentView } from "@/components/assignment/AssignmentView";
 import { getCourseAccess, type AssignmentRow, type SubmissionRow } from "@/lib/server/access";
 import { assignmentData } from "@/lib/server/assignments";
@@ -8,8 +8,17 @@ import { pageUser } from "@/lib/server/session";
 import { getSettings } from "@/lib/server/settings";
 import { toListItem } from "@/lib/server/submissions";
 
-export default async function AssignmentPage({ params }: { params: Promise<{ courseId: string; assignmentId: string }> }) {
+export default async function AssignmentPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ courseId: string; assignmentId: string }>;
+  searchParams: Promise<{ file?: string }>;
+}) {
   const { courseId, assignmentId } = await params;
+  // Feedback used to open in a drawer at ?file=<id>; it has its own page now.
+  const { file } = await searchParams;
+  if (file) redirect(`/submissions/${encodeURIComponent(file)}`);
   const me = await pageUser();
   const access = await getCourseAccess(me, courseId);
   if (!access) notFound();
