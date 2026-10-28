@@ -2,7 +2,7 @@ import { requireSubmission } from "@/lib/server/access";
 import { logActivity } from "@/lib/server/activity";
 import { badRequest, handle } from "@/lib/server/http";
 import { requireUser } from "@/lib/server/session";
-import { buildDownload, contentDisposition, nbconvertDownload } from "@/lib/server/submissions";
+import { buildDownload, contentDisposition, INLINE_CSP, nbconvertDownload } from "@/lib/server/submissions";
 import type { DownloadFormat } from "@/lib/shared/document";
 
 const FORMATS: DownloadFormat[] = ["html", "txt", "ipynb", "src", "doc", "json", "original"];
@@ -20,6 +20,6 @@ export const GET = handle(async (req: Request, ctx: { params: Promise<{ id: stri
   const headers: Record<string, string> = { "Content-Type": f.type, "Cache-Control": "private, no-store" };
   if (url.searchParams.get("inline") !== "1") headers["Content-Disposition"] = contentDisposition(f.name);
   // Shown in a frame on the feedback page.
-  else headers["Content-Security-Policy"] = "default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src https://fonts.gstatic.com; frame-ancestors 'self'";
+  else headers["Content-Security-Policy"] = INLINE_CSP;
   return new Response(f.data as BodyInit, { headers });
 });

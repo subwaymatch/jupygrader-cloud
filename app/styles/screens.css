@@ -884,6 +884,13 @@
   height: 100%;
   border: 0;
 }
+/* On a student's link page the frame is as tall as the notebook, and the page scrolls. */
+.nb-frame--auto {
+  height: auto;
+}
+.nb-frame--auto iframe {
+  height: 480px;
+}
 .nb-frame__loading {
   position: absolute;
   inset: 0;

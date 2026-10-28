@@ -82,7 +82,7 @@ export async function toDetail(row: SubmissionRow, asg: AssignmentRow, model?: s
     studentSet: !!row.student_set,
     cells: docViewCells(doc, result?.comments ?? []),
     refLabels: refLabels(doc),
-    htmlUrl: await notebookHtmlUrl(row, asg),
+    htmlUrl: await notebookHtmlVersion(row, asg).then((v) => v && `/api/submissions/${row.id}/download?format=html&inline=1&v=${v}`),
   };
 }
 
@@ -275,15 +275,16 @@ export async function renderNotebookHtml(row: SubmissionRow, asg: AssignmentRow)
 }
 
 /**
- * URL of the notebook's HTML for the feedback page, or null when none is stored yet. A missing
- * or out-of-date copy is made in the background, for downloads and the next visit.
+ * Version of the notebook's stored HTML, for the URL of a page's frame (a new grade gives a new
+ * version, so the frame reloads), or null when none is stored yet. A missing or out-of-date copy
+ * is made in the background, for downloads and the next visit; the download route also makes a
+ * stale copy again when the frame asks for it.
  */
-async function notebookHtmlUrl(row: SubmissionRow, asg: AssignmentRow): Promise<string | null> {
+export async function notebookHtmlVersion(row: SubmissionRow, asg: AssignmentRow): Promise<string | null> {
   if (!rendersHtml(row) || row.status !== "graded") return null;
   const [stored, fp] = await Promise.all([getEnv().FILES.head(notebookHtmlKey(row.r2_key!)), notebookHtmlFingerprint(row, asg)]);
   if (stored?.customMetadata?.fp !== fp) waitUntil(renderNotebookHtml(row, asg).catch((err) => console.error("nbconvert render failed", row.id, err)));
-  // The fingerprint reloads the frame when the grade changes; the download route makes a stale copy again.
-  return stored ? `/api/submissions/${row.id}/download?format=html&inline=1&v=${fp.slice(0, 16)}` : null;
+  return stored ? fp.slice(0, 16) : null;
 }
 
 /** "Notebook as HTML": the stored copy, or a fresh one from nbconvert. Null when neither is available. */
@@ -342,6 +343,9 @@ export function preferredFormat(kind: string, file: string): DownloadFormat {
   if (kind === "doc" && (x === "md" || x === "txt")) return "doc";
   return "html";
 }
+
+/** For HTML shown in a frame on a Jupygrader page: no scripts, no outside requests, framed only by this site. */
+export const INLINE_CSP = "default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src https://fonts.gstatic.com; frame-ancestors 'self'";
 
 export function contentDisposition(name: string): string {
   const ascii = name.replace(/[^\x20-\x7e]/g, "_").replace(/"/g, "'");
