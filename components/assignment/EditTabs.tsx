@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AnswerKeys, type KeyFile } from "@/components/assignments/AnswerKeys";
-import { GradingSettingsFields, InstructionsField, type GradingSettings } from "@/components/assignments/Fields";
+import { GradingSettingsFields, InstructionsField, type AiDefaults, type GradingSettings } from "@/components/assignments/Fields";
 import { MismatchDialog, type MismatchChoice } from "@/components/assignments/MismatchDialog";
 import { PointsField, RubricEditor, type RubricValue } from "@/components/assignments/RubricEditor";
 import type { UploadedDoc } from "@/components/assignments/uploadDoc";
@@ -241,11 +241,23 @@ export function RubricTab({ asg, canEdit, onSaved }: { asg: AssignmentData; canE
   );
 }
 
-export function SettingsTab({ asg, canEdit, model, onSaved }: { asg: AssignmentData; canEdit: boolean; model: string; onSaved: (a: AssignmentData) => void }) {
-  const initial: GradingSettings = { style: asg.style, tone: asg.tone, length: asg.length, notes: asg.notes };
+export function SettingsTab({
+  asg,
+  canEdit,
+  model,
+  aiDefaults,
+  onSaved,
+}: {
+  asg: AssignmentData;
+  canEdit: boolean;
+  model: string;
+  aiDefaults: AiDefaults;
+  onSaved: (a: AssignmentData) => void;
+}) {
+  const initial: GradingSettings = { style: asg.style, tone: asg.tone, length: asg.length, notes: asg.notes, aiImages: asg.aiImages, aiInteractive: asg.aiInteractive };
   const [v, setV] = useState(initial);
   const [busy, setBusy] = useState(false);
-  const dirty = v.style !== initial.style || v.tone !== initial.tone || v.length !== initial.length || v.notes !== initial.notes;
+  const dirty = JSON.stringify(v) !== JSON.stringify(initial);
   return (
     <section className="asg-body" aria-label="Settings" style={{ maxWidth: 620 }}>
       <div className="stack" style={{ gap: 4 }}>
@@ -253,7 +265,7 @@ export function SettingsTab({ asg, canEdit, model, onSaved }: { asg: AssignmentD
         <span className="muted">How the AI grades and writes feedback for this assignment.</span>
       </div>
       <div className="form">
-        <GradingSettingsFields value={v} onChange={setV} model={model} disabled={!canEdit} />
+        <GradingSettingsFields value={v} onChange={setV} model={model} aiDefaults={aiDefaults} disabled={!canEdit} />
       </div>
       {!canEdit && <span className="muted">Only Teachers can change these settings.</span>}
       {dirty && (

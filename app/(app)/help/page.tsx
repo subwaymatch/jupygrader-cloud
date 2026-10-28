@@ -169,7 +169,11 @@ export default async function HelpPage() {
         <section className="section">
           <h2 className="h2">What the AI receives</h2>
           <ul className="bullets">
-            <li>The submitted file, with notebook outputs{s.sendImages ? " and up to 6 plots" : ""}</li>
+            <li>
+              The submitted file, with notebook outputs
+              {s.aiImages.mode === "none" ? "" : s.aiImages.mode === "limit" ? ` and up to ${s.aiImages.limit} plots` : " and its plots"}, unless the
+              assignment sets how many plots and interactive outputs to send
+            </li>
             <li>The assignment instructions</li>
             <li>The rubric items and their points</li>
             <li>The answer key, if one was added</li>

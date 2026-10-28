@@ -5,7 +5,7 @@ import { enqueueGrading } from "@/lib/server/grading";
 import { badRequest, handle, readJson } from "@/lib/server/http";
 import { newId } from "@/lib/server/ids";
 import { requireUser } from "@/lib/server/session";
-import { deleteFiles } from "@/lib/server/storage";
+import { deleteFiles, submissionKeys } from "@/lib/server/storage";
 import type { HistoryEntry } from "@/lib/shared/types";
 
 type Action = "regrade" | "retry" | "gradeAnyway" | "cancel" | "remove";
@@ -24,7 +24,7 @@ export const POST = handle(async (req: Request, ctx: { params: Promise<{ id: str
   if (action === "remove") {
     const list = rows.filter((r) => r.status !== "grading");
     if (!list.length) return Response.json({ count: 0 });
-    await deleteFiles(list.flatMap((r) => (r.r2_key ? [r.r2_key, r.r2_key + ".paras.json"] : [])));
+    await deleteFiles(list.flatMap((r) => submissionKeys(r.r2_key)));
     await run(`delete from submission where id in (${inList(list.length)})`, ...list.map((r) => r.id));
     await logActivity({
       type: "grading",

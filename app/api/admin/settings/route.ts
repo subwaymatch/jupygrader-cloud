@@ -2,7 +2,7 @@ import { logActivity } from "@/lib/server/activity";
 import { badRequest, handle, readJson } from "@/lib/server/http";
 import { requireAdmin } from "@/lib/server/session";
 import { getSettings, getSettingsWithKey, saveSettings, type SiteSettings } from "@/lib/server/settings";
-import { AI_PROVIDERS, isAiProvider, type Effort } from "@/lib/shared/constants";
+import { AI_PROVIDERS, cleanOutputPolicy, isAiProvider, MAX_AI_IMAGES, type Effort } from "@/lib/shared/constants";
 
 export const PUT = handle(async (req: Request) => {
   const me = await requireAdmin(req);
@@ -35,8 +35,12 @@ export const PUT = handle(async (req: Request) => {
     }
   }
   if (b.capOn !== undefined) patch.capOn = !!b.capOn;
-  if (b.sendImages !== undefined) patch.sendImages = !!b.sendImages;
-  if (b.sendInteractive !== undefined) patch.sendInteractive = !!b.sendInteractive;
+  for (const k of ["aiImages", "aiInteractive"] as const) {
+    if (b[k] === undefined) continue;
+    const p = cleanOutputPolicy(b[k]);
+    if (!p) throw badRequest(`Enter a number from 1 to ${MAX_AI_IMAGES} for how many ${k === "aiImages" ? "images" : "interactive outputs"} to send.`);
+    patch[k] = p;
+  }
   if (b.concurrency !== undefined) {
     const v = Math.round(Number(b.concurrency));
     if (!(v >= 1 && v <= 20)) throw badRequest("Files graded at once must be between 1 and 20.");

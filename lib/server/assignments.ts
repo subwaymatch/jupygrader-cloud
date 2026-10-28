@@ -1,4 +1,4 @@
-import { LENGTHS, STYLES, TONES } from "@/lib/shared/constants";
+import { cleanOutputPolicy, LENGTHS, MAX_AI_IMAGES, STYLES, TONES, type OutputPolicy } from "@/lib/shared/constants";
 import { effectiveTotal, namedRows, rubricProblem, type RubricMethod } from "@/lib/shared/rubric";
 import type { AssignmentData, RubricRow, StoredFile } from "@/lib/shared/types";
 import type { AssignmentRow } from "./access";
@@ -28,6 +28,8 @@ export async function assignmentData(a: AssignmentRow): Promise<AssignmentData> 
     tone: a.tone as AssignmentData["tone"],
     length: a.length as AssignmentData["length"],
     notes: a.notes,
+    aiImages: cleanOutputPolicy(parseJson(a.ai_images, null)),
+    aiInteractive: cleanOutputPolicy(parseJson(a.ai_interactive, null)),
     version: a.version,
     answerKeys: keys,
   };
@@ -60,6 +62,8 @@ export type AssignmentInput = {
   tone?: string;
   length?: string;
   notes?: string;
+  aiImages?: OutputPolicy | null;
+  aiInteractive?: OutputPolicy | null;
   addAnswerKeys?: string[];
   removeAnswerKeys?: string[];
 };
@@ -111,6 +115,16 @@ export async function assignmentColumns(input: AssignmentInput, userId: string, 
   if (input.length !== undefined) {
     if (!LENGTHS.some((s) => s.id === input.length)) throw badRequest("Unknown feedback length.");
     cols.length = input.length;
+  }
+  for (const [key, col, what] of [
+    ["aiImages", "ai_images", "images"],
+    ["aiInteractive", "ai_interactive", "interactive outputs"],
+  ] as const) {
+    const v = input[key];
+    if (v === undefined) continue;
+    const p = v === null ? null : cleanOutputPolicy(v);
+    if (v !== null && !p) throw badRequest(`Enter a number from 1 to ${MAX_AI_IMAGES} for how many ${what} to send.`);
+    cols[col] = p && JSON.stringify(p);
   }
 
   const rubricTouched =

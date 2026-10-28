@@ -14,11 +14,12 @@ export const GET = handle(async (req: Request, ctx: { params: Promise<{ id: stri
   const url = new URL(req.url);
   const format = (url.searchParams.get("format") || "html") as DownloadFormat;
   if (!FORMATS.includes(format)) throw badRequest("Unknown format.");
-  const f = (format === "html" && (await nbconvertDownload(sub, asg, course, req))) || (await buildDownload(sub, asg, course, format, req));
+  const f = (format === "html" && (await nbconvertDownload(sub, asg))) || (await buildDownload(sub, asg, course, format, req));
   if (url.searchParams.get("inline") !== "1")
     await logActivity({ type: "exports", user: me, courseId: course.id, text: `Downloaded ${format === "original" ? "the original of" : "feedback for"} ${sub.file_name}` });
   const headers: Record<string, string> = { "Content-Type": f.type, "Cache-Control": "private, no-store" };
   if (url.searchParams.get("inline") !== "1") headers["Content-Disposition"] = contentDisposition(f.name);
-  else headers["Content-Security-Policy"] = "default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src https://fonts.gstatic.com";
+  // Shown in a frame on the feedback page.
+  else headers["Content-Security-Policy"] = "default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src https://fonts.gstatic.com; frame-ancestors 'self'";
   return new Response(f.data as BodyInit, { headers });
 });

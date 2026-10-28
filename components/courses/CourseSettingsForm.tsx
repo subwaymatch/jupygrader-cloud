@@ -8,10 +8,18 @@ import { Field, Input } from "@/components/ui/Field";
 import { Icon } from "@/components/ui/Icon";
 import { toast } from "@/components/ui/Toast";
 import { api, errorMessage } from "@/lib/client/api";
-import { addYears, fmtLongDay, todayIso } from "@/lib/shared/format";
+import { addYears, fmtLongDay, plural, todayIso } from "@/lib/shared/format";
 import type { CourseView } from "@/lib/server/courses";
 
-export function CourseSettingsForm({ course, retentionLabel }: { course: CourseView; retentionLabel: string }) {
+export function CourseSettingsForm({
+  course,
+  contents,
+  retentionLabel,
+}: {
+  course: CourseView;
+  contents: { assignments: number; submissions: number };
+  retentionLabel: string;
+}) {
   const router = useRouter();
   const confirm = useConfirm();
   const [name, setName] = useState(course.name);
@@ -33,6 +41,24 @@ export function CourseSettingsForm({ course, retentionLabel }: { course: CourseV
       setError(errorMessage(err));
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function reset() {
+    const ok = await confirm({
+      title: `Reset ${course.name}?`,
+      body: `This permanently deletes ${plural(contents.assignments, "assignment")} and ${plural(contents.submissions, "uploaded file")}, with their rubrics, answer keys, grades, feedback and student links. The course, its people and settings stay. It can't be undone.`,
+      cta: "Reset course",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await api(`/api/courses/${course.id}/reset`, { method: "POST" });
+      toast(`Reset ${course.name}`);
+      router.push(`/courses/${course.id}`);
+      router.refresh();
+    } catch (err) {
+      toast(errorMessage(err), { error: true });
     }
   }
 
@@ -99,6 +125,17 @@ export function CourseSettingsForm({ course, retentionLabel }: { course: CourseV
         </Button>
       </div>
       <section className="settings-section" style={{ marginTop: 24 }}>
+        <h2 className="h2">Reset course</h2>
+        <p className="muted">
+          Deletes every assignment, file, grade and student link, and keeps the course, its people and settings. Useful for starting a new term with the same team.
+        </p>
+        <div>
+          <Button variant="danger-outline" icon="rotate" onClick={reset} disabled={!contents.assignments}>
+            Reset course
+          </Button>
+        </div>
+      </section>
+      <section className="settings-section">
         <h2 className="h2">Delete course</h2>
         <p className="muted">Deletes every assignment, file, grade and student link in this course.</p>
         <div>

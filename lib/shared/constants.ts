@@ -9,6 +9,7 @@ export const ROLE_INFO: Record<Role, string> = {
 };
 
 export const STYLES = [
+  { id: "completion", name: "Completion", desc: "Gives full points for every part the student attempted. Only parts left undone lose points." },
   { id: "lenient", name: "Lenient", desc: "Gives partial credit generously. Focuses on whether the main idea is right." },
   { id: "balanced", name: "Balanced", desc: "Follows the rubric closely and gives partial credit for a correct approach." },
   { id: "strict", name: "Strict", desc: "Expects every requirement to be met exactly. Small mistakes lose points." },
@@ -49,6 +50,35 @@ export const ACTIVITY_TYPES = {
   settings: "Settings",
 } as const;
 export type ActivityType = keyof typeof ACTIVITY_TYPES;
+
+/**
+ * How many notebook output images, or interactive outputs, go to the AI with each file. The rest
+ * are replaced with a short note. Set for the site by an admin; an assignment can use its own.
+ */
+export type OutputPolicy = { mode: "all" | "limit" | "none"; limit: number };
+
+/** The most images one grading request carries, even with "all": the AI APIs reject more. */
+export const MAX_AI_IMAGES = 100;
+
+export function cleanOutputPolicy(v: unknown): OutputPolicy | null {
+  const p = v as Partial<OutputPolicy> | null;
+  if (!p || !["all", "limit", "none"].includes(p.mode as string)) return null;
+  const limit = Math.round(Number(p.limit));
+  if (!(limit >= 1 && limit <= MAX_AI_IMAGES)) return p.mode === "limit" ? null : { mode: p.mode!, limit: 6 };
+  return { mode: p.mode!, limit };
+}
+
+/** How many to send under a policy, at most `cap`. */
+export function outputCount(p: OutputPolicy, cap: number): number {
+  return p.mode === "all" ? cap : p.mode === "limit" ? Math.min(p.limit, cap) : 0;
+}
+
+/** Short description, such as "up to 6 per file". */
+export function describeOutputPolicy(p: OutputPolicy, kind: "images" | "interactive"): string {
+  if (p.mode === "none") return "none";
+  if (p.mode === "limit") return `up to ${p.limit} per file`;
+  return kind === "images" ? `all, up to ${MAX_AI_IMAGES} per file` : "all";
+}
 
 export const EFFORTS = { minimal: "Minimal", low: "Low", medium: "Medium", high: "High", xhigh: "Extra high", max: "Max" } as const;
 export type Effort = keyof typeof EFFORTS;

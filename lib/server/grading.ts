@@ -1,4 +1,4 @@
-import { STYLES, type FeedbackLength, type GradingStyle, type Tone } from "@/lib/shared/constants";
+import { cleanOutputPolicy, MAX_AI_IMAGES, outputCount, STYLES, type FeedbackLength, type GradingStyle, type Tone } from "@/lib/shared/constants";
 import { docForAI, refLabels, parseLineRef, type SourceDoc } from "@/lib/shared/document";
 import { fmtScore } from "@/lib/shared/format";
 import { namedRows, rowsTotal } from "@/lib/shared/rubric";
@@ -11,7 +11,8 @@ import { sendEmail } from "./email";
 import { appUrl, getEnv } from "./env";
 import { newId } from "./ids";
 import { costOf, getSettingsWithKey, monthUsage, type SiteSettingsWithKey } from "./settings";
-import { deleteFiles, submissionDoc } from "./storage";
+import { deleteFiles, submissionDoc, submissionKeys } from "./storage";
+import { renderNotebookHtml } from "./submissions";
 
 export const GRADE_SCHEMA = {
   type: "object",
@@ -66,6 +67,12 @@ const TONE_TEXT: Record<Tone, string> = {
   direct: "Direct and concise. State problems plainly without softening, and skip praise unless it is earned.",
 };
 
+// Rules added to a style's description in the prompt, where the description alone isn't enough.
+const STYLE_RULES: Partial<Record<GradingStyle, string>> = {
+  completion:
+    "Give every rubric item its full points when the student attempted all of it, even if the work has mistakes, wrong results or errors. Take points off only for parts of the instructions the student didn't attempt at all (missing, left blank, or left as the template's placeholder): an item with no attempt gets 0, and an item with some parts skipped loses only those parts' share of its points. Still point out mistakes in the comments, so the student can learn from them, but don't take points off for them.",
+};
+
 const LENGTH_TEXT: Record<FeedbackLength, string> = {
   brief: "Summary: one sentence. Rubric comments: one short sentence each. Inline comments: at most 4.",
   standard: "Summary: 2 or 3 sentences. Rubric comments: 1 or 2 sentences each. Inline comments: 3 to 8.",
@@ -81,8 +88,9 @@ export type GradingInput = {
   answerKeys: { name: string; text: string }[];
   doc: SourceDoc;
   fileExt: string;
-  sendImages: boolean;
-  sendInteractive: boolean;
+  /** How many notebook output images and interactive outputs to send. */
+  maxImages: number;
+  maxInteractive: number;
 };
 
 export function rubricForPrompt(rows: RubricRow[]): string {
@@ -93,13 +101,13 @@ export function rubricForPrompt(rows: RubricRow[]): string {
 
 export function buildGradingMessages(input: GradingInput): ChatMessage[] {
   const { asg } = input;
-  const style = STYLES.find((s) => s.id === asg.style) ?? STYLES[1];
+  const style = STYLES.find((s) => s.id === asg.style) ?? STYLES.find((s) => s.id === "balanced")!;
   const rows = namedRows(input.rows);
   const points = asg.points;
   const system = [
     "You are an experienced teaching assistant. You grade one student submission against the assignment's rubric and write feedback the student will read.",
     "",
-    `Grading style: ${style.name}. ${style.desc}`,
+    `Grading style: ${style.name}. ${style.desc}${STYLE_RULES[style.id] ? " " + STYLE_RULES[style.id] : ""}`,
     `Feedback tone: ${TONE_TEXT[asg.tone as Tone] ?? TONE_TEXT.neutral}`,
     `Feedback length: ${LENGTH_TEXT[asg.length as FeedbackLength] ?? LENGTH_TEXT.standard}`,
     "",
@@ -146,7 +154,7 @@ export function buildGradingMessages(input: GradingInput): ChatMessage[] {
   }
   if (asg.notes?.trim()) parts.push("## Notes from the instructor", asg.notes.trim());
 
-  const ai = docForAI(input.doc, { images: input.sendImages, interactive: input.sendInteractive });
+  const ai = docForAI(input.doc, { images: input.maxImages, interactive: input.maxInteractive });
   const submission = [`## The submission (file type .${input.fileExt || "unknown"})`, ai.refHelp, "<submission>", ai.text, "</submission>"];
 
   // Everything before the submission is the same for every file of the assignment, so it can be cached.
@@ -323,8 +331,8 @@ export async function processSubmission(id: string): Promise<ProcessOutcome> {
       answerKeys: await loadAnswerKeys(asg.id),
       doc,
       fileExt: sub.file_name.split(".").pop() || "",
-      sendImages: settings.sendImages,
-      sendInteractive: settings.sendInteractive,
+      maxImages: outputCount(cleanOutputPolicy(parseJson(asg.ai_images, null)) ?? settings.aiImages, MAX_AI_IMAGES),
+      maxInteractive: outputCount(cleanOutputPolicy(parseJson(asg.ai_interactive, null)) ?? settings.aiInteractive, Infinity),
     });
     const { data, usage, model } = await chatJson<RawGrade>({ settings, messages, schema: GRADE_SCHEMA, schemaName: "grade" });
     const { result, score } = normalizeGrade(data, effectiveRows, asg.points, doc);
@@ -358,6 +366,9 @@ export async function processSubmission(id: string): Promise<ProcessOutcome> {
       id,
     );
     await recordUsage({ kind: "grade", usage, cost, model: meta.model, submissionId: id, assignmentId: asg.id, courseId: asg.course_id });
+    // Make the notebook's HTML now, so downloads and the feedback page don't wait for nbconvert.
+    const graded = await first<SubmissionRow>("select * from submission where id = ?", id);
+    if (graded) await renderNotebookHtml(graded, asg).catch((err) => console.error("nbconvert render failed", id, err));
     await maybeNotifyBatch(sub.batch_id);
     return "done";
   } catch (err) {
@@ -501,8 +512,7 @@ export async function retentionSweep(settings?: SiteSettingsWithKey): Promise<nu
         now,
       );
     }
-    const keys = rows.flatMap((r) => (r.r2_key ? [r.r2_key, r.r2_key + ".paras.json"] : []));
-    await deleteFiles(keys);
+    await deleteFiles(rows.flatMap((r) => submissionKeys(r.r2_key)));
     await run(`delete from submission where id in (${rows.map(() => "?").join(",")})`, ...rows.map((r) => r.id));
     total += rows.length;
   }

@@ -1,4 +1,4 @@
-import type { FeedbackLength, FileKind, GradingStyle, Role, SubmissionStatus, Tone } from "./constants";
+import type { FeedbackLength, FileKind, GradingStyle, OutputPolicy, Role, SubmissionStatus, Tone } from "./constants";
 
 export type RubricRow = { name: string; pts: string; desc: string };
 
@@ -83,6 +83,9 @@ export type AssignmentData = {
   tone: Tone;
   length: FeedbackLength;
   notes: string;
+  /** Null uses the site's setting. */
+  aiImages: OutputPolicy | null;
+  aiInteractive: OutputPolicy | null;
   version: number;
   answerKeys: { id: string; name: string; size: number }[];
 };
@@ -138,4 +141,6 @@ export type SubmissionDetail = SubmissionListItem & {
   studentSet: boolean;
   cells: ViewCell[];
   refLabels: Record<string, string>;
+  /** The graded notebook as nbconvert HTML, for the feedback page; null shows `cells` instead. */
+  htmlUrl: string | null;
 };

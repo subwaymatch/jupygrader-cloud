@@ -10,7 +10,7 @@ export const GET = handle(async (req: Request, ctx: { params: Promise<{ token: s
   const format = new URL(req.url).searchParams.get("format") || "html";
   if (!["html", "ipynb", "txt", "src", "doc"].includes(format)) throw badRequest("Unknown format.");
   const f =
-    (format === "html" && (await nbconvertDownload(shared.sub, shared.asg, shared.course, req))) ||
+    (format === "html" && (await nbconvertDownload(shared.sub, shared.asg))) ||
     (await buildDownload(shared.sub, shared.asg, shared.course, format as "html", req));
   return new Response(f.data as BodyInit, {
     headers: { "Content-Type": f.type, "Content-Disposition": contentDisposition(f.name), "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex" },

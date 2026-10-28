@@ -30,6 +30,9 @@ export type AssignmentRow = {
   tone: string;
   length: string;
   notes: string;
+  /** JSON OutputPolicy, or null for the site's setting. */
+  ai_images: string | null;
+  ai_interactive: string | null;
   version: number;
   created_by: string | null;
   created_at: string;

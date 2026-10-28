@@ -4,6 +4,7 @@ import {
   notebookForAI,
   notebookPlainText,
   notebookRefLabels,
+  notebookForHtml,
   notebookViewCells,
   serializeNotebook,
   summaryMarkdown,
@@ -67,10 +68,10 @@ export function labelFor(ref: string, labels: Record<string, string>): string {
 
 export type AiDocument = { text: string; images: AiImage[]; refHelp: string };
 
-/** `images` and `interactive` say whether notebook output images and interactive outputs are sent. A submitted image is always sent. */
-export function docForAI(doc: SourceDoc, opts: { images: boolean; interactive: boolean }): AiDocument {
+/** `images` and `interactive` are how many notebook output images and interactive outputs are sent. A submitted image is always sent. */
+export function docForAI(doc: SourceDoc, opts: { images: number; interactive: number }): AiDocument {
   if (doc.type === "notebook") {
-    const r = notebookForAI(doc.nb, { maxImages: opts.images ? 6 : 0, interactive: opts.interactive });
+    const r = notebookForAI(doc.nb, { maxImages: opts.images, maxInteractive: opts.interactive });
     return {
       text: r.text,
       images: r.images,
@@ -288,4 +289,9 @@ export function downloadFormats(file: string, kind: FileKind): { id: DownloadFor
 
 export function annotatedNotebook(doc: Extract<SourceDoc, { type: "notebook" }>, result: GradeResult, h: FeedbackHeader) {
   return serializeNotebook(insertNotebookFeedback(doc.nb, result, h));
+}
+
+/** annotatedNotebook with cell ids for nbconvert's HTML; see notebookForHtml. */
+export function htmlNotebook(doc: Extract<SourceDoc, { type: "notebook" }>, result: GradeResult, h: FeedbackHeader) {
+  return serializeNotebook(notebookForHtml(doc.nb, result, h));
 }

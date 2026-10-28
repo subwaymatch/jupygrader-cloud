@@ -10,11 +10,16 @@ export function safeName(name: string): string {
 export const submissionKey = (assignmentId: string, submissionId: string, fileName: string) =>
   `sub/${assignmentId}/${submissionId}/${safeName(fileName)}`;
 
+/** A submission's file and what is cached next to it: extracted text, and nbconvert HTML for graded notebooks. */
+export const submissionKeys = (r2Key: string | null) => (r2Key ? [r2Key, r2Key + ".paras.json", notebookHtmlKey(r2Key)] : []);
+
+export const notebookHtmlKey = (r2Key: string) => r2Key + ".nbconvert.html";
+
 export const assignmentFileKey = (assignmentId: string, kind: "task" | "rubric" | "key", id: string, fileName: string) =>
   `asg/${assignmentId}/${kind}/${id}-${safeName(fileName)}`;
 
-export async function putFile(key: string, data: ArrayBuffer | Uint8Array | string, contentType: string) {
-  await getEnv().FILES.put(key, data, { httpMetadata: { contentType } });
+export async function putFile(key: string, data: ArrayBuffer | Uint8Array | string, contentType: string, customMetadata?: Record<string, string>) {
+  await getEnv().FILES.put(key, data, { httpMetadata: { contentType }, customMetadata });
 }
 
 export async function getBytes(key: string): Promise<Uint8Array | null> {

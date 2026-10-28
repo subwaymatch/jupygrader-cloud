@@ -1,10 +1,9 @@
 import { requireCourse } from "@/lib/server/access";
 import { logActivity } from "@/lib/server/activity";
-import { resolveCourseDates, validateCourseName } from "@/lib/server/courses";
-import { all, run } from "@/lib/server/db";
+import { resetCourse, resolveCourseDates, validateCourseName } from "@/lib/server/courses";
+import { run } from "@/lib/server/db";
 import { handle, readJson } from "@/lib/server/http";
 import { requireUser } from "@/lib/server/session";
-import { deletePrefix } from "@/lib/server/storage";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -37,11 +36,7 @@ export const DELETE = handle(async (req: Request, ctx: Ctx) => {
   const me = await requireUser(req);
   const { id } = await ctx.params;
   const { course } = await requireCourse(me, id, "manage");
-  const asgs = await all<{ id: string }>("select id from assignment where course_id = ?", id);
-  for (const a of asgs) {
-    await deletePrefix(`sub/${a.id}/`);
-    await deletePrefix(`asg/${a.id}/`);
-  }
+  await resetCourse(id);
   await run("delete from course where id = ?", id);
   await logActivity({ type: "rubrics", user: me, text: `Deleted the course ${course.name}` });
   return Response.json({ ok: true });

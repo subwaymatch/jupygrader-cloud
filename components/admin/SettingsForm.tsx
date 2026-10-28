@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Controls";
 import { AffixInput, Field, Input } from "@/components/ui/Field";
 import { Icon } from "@/components/ui/Icon";
+import { OutputPolicyField } from "@/components/assignments/Fields";
 import { Select } from "@/components/ui/Select";
 import { toast } from "@/components/ui/Toast";
 import { api, errorMessage } from "@/lib/client/api";
@@ -170,18 +171,13 @@ export function SettingsForm({ initial, keyInfo, usage, emailOn }: Props) {
             options={[{ value: "default", label: "Default" }, ...provider.efforts.map((e) => ({ value: e, label: EFFORTS[e] }))]}
           />
         </Field>
-        <Checkbox
-          checked={s.sendImages}
-          onChange={(v) => set({ sendImages: v })}
-          label="Send plots and images to the AI"
-          description={`Up to 6 notebook output images per file${anthropic ? "" : ", at low detail,"} so the AI can judge visualizations. Images use many tokens; when off, the AI sees a short note instead. Needs a model that accepts images.`}
+        <OutputPolicyField
+          kind="images"
+          value={s.aiImages}
+          onChange={(v) => v && set({ aiImages: v })}
+          extraHint={`${anthropic ? "" : "They're sent at low detail. "}Each assignment can use its own setting.`}
         />
-        <Checkbox
-          checked={s.sendInteractive}
-          onChange={(v) => set({ sendInteractive: v })}
-          label="Send interactive outputs to the AI"
-          description="Widgets and Plotly, Bokeh or Vega charts can't be shown to the AI. When on, their text form is sent, up to 2,000 characters each. When off, the AI sees a short note instead."
-        />
+        <OutputPolicyField kind="interactive" value={s.aiInteractive} onChange={(v) => v && set({ aiInteractive: v })} extraHint="Each assignment can use its own setting." />
         <div>
           <Button variant="outline" icon="send" onClick={test} loading={busy === "test"}>
             Test saved settings
