@@ -145,6 +145,19 @@
   background: var(--c-primary);
   border-radius: inherit;
 }
+/* For work without a known size yet: a short bar slides across. */
+.progress--indeterminate > span {
+  width: 35%;
+  animation: jg-progress-slide 1.2s ease-in-out infinite;
+}
+@keyframes jg-progress-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
 .tile-add {
   display: flex;
   align-items: center;
@@ -729,6 +742,15 @@
 .upload-item:last-child {
   border-bottom: 0;
 }
+.upload-item--pick {
+  cursor: pointer;
+}
+.upload-item--pick:hover {
+  background: var(--c-bg-subtle);
+}
+.upload-item--off .grow {
+  opacity: 0.55;
+}
 .upload-item > .icon {
   margin-top: 2px;
 }
@@ -737,6 +759,45 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.upload-list__head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 12px;
+  background: #fff;
+  border-bottom: 1px solid var(--c-border);
+  font-size: 13px;
+}
+.upload-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 16px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  font-size: 14px;
+}
+.upload-progress__label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.upload-progress__label > .icon {
+  flex: none;
+}
+.upload-progress__label > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.upload-progress .progress > span {
+  transition: width 0.15s ease-out;
 }
 .upload-group {
   padding: 8px 12px;

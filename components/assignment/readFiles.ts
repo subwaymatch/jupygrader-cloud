@@ -56,8 +56,11 @@ function entryCheck(info: UnzipFileInfo, base: string): Pick<ReadFile, "status" 
   return null;
 }
 
-/** Expands .zip files (skipping .html files inside them), checks sizes and computes each file's SHA-256. */
-export async function readFiles(input: File[], progress: (done: number, total: number) => void): Promise<ReadFile[]> {
+/**
+ * Expands .zip files (skipping .html files inside them), checks sizes and computes each file's SHA-256.
+ * `progress` also gets the archive's name while a .zip is being opened, before its file count is known.
+ */
+export async function readFiles(input: File[], progress: (done: number, total: number, zip?: string) => void): Promise<ReadFile[]> {
   const errors: ReadFile[] = [];
   const out: ReadFile[] = [];
   const loose = input.filter((f) => !/\.zip$/i.test(f.name) && !JUNK.test(f.name));
@@ -75,6 +78,7 @@ export async function readFiles(input: File[], progress: (done: number, total: n
   for (const f of input.filter((f) => /\.zip$/i.test(f.name))) {
     let buf: Uint8Array;
     const entries: UnzipFileInfo[] = [];
+    progress(done, total, f.name);
     try {
       buf = new Uint8Array(await f.arrayBuffer());
       unzipSync(buf, {

@@ -13,7 +13,7 @@ import { STATUS, type FileKind } from "@/lib/shared/constants";
 import { downloadFormats } from "@/lib/shared/document";
 import { fmtScore, fmtTokens, fmtUsd, plural } from "@/lib/shared/format";
 import type { AssignmentData, SubmissionListItem } from "@/lib/shared/types";
-import { stageFiles, type Staged } from "./staging";
+import { stageFiles, type StageProgress, type Staged } from "./staging";
 import { UploadDialog } from "./UploadDialog";
 import type { useSubmissions } from "./useSubmissions";
 
@@ -86,8 +86,8 @@ export function SubmissionsTab({
   const [hash, setHash] = useState("");
   const [staged, setStaged] = useState<Staged[] | null>(null);
   const [regrade, setRegrade] = useState(false);
-  const [staging, setStaging] = useState(false);
-  const [stageProgress, setStageProgress] = useState("");
+  const [stageProgress, setStageProgress] = useState<StageProgress | null>(null);
+  const stageAbort = useRef<AbortController | null>(null);
   const [pending, setPending] = useState<Pending[]>([]);
   const [resultsOpen, setResultsOpen] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -149,19 +149,35 @@ export function SubmissionsTab({
   const median = sorted.length ? (sorted.length % 2 ? sorted[(sorted.length - 1) / 2] : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2) : null;
 
   // ----- Uploads -----
+  // The upload dialog opens right away and shows progress while the files are read.
   async function handleFiles(files: File[]) {
     if (!files.length || !canGrade) return;
-    setStaging(true);
+    stageAbort.current?.abort();
+    const ctrl = new AbortController();
+    stageAbort.current = ctrl;
+    setStaged(null);
+    setRegrade(false);
+    setStageProgress({ step: "read", done: 0, total: 0 });
     try {
-      setRegrade(false);
-      setStaged(await stageFiles(asg.id, files, (done, total) => setStageProgress(`Reading ${done} of ${total}`)));
+      const out = await stageFiles(asg.id, files, { signal: ctrl.signal, onProgress: (p) => !ctrl.signal.aborted && setStageProgress(p) });
+      if (!ctrl.signal.aborted) setStaged(out);
     } catch (err) {
-      toast(errorMessage(err), { error: true });
+      if (!ctrl.signal.aborted) toast(errorMessage(err), { error: true });
     } finally {
-      setStaging(false);
-      setStageProgress("");
+      if (stageAbort.current === ctrl) {
+        stageAbort.current = null;
+        setStageProgress(null);
+      }
     }
   }
+  function cancelStaging() {
+    stageAbort.current?.abort();
+    stageAbort.current = null;
+    setStageProgress(null);
+    setStaged(null);
+  }
+  // Stop reading if the user leaves the tab mid-way.
+  useEffect(() => () => stageAbort.current?.abort(), []);
   useEffect(() => {
     if (droppedFiles?.length) {
       handleFiles(droppedFiles);
@@ -170,8 +186,7 @@ export function SubmissionsTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [droppedFiles]);
 
-  async function confirmUpload() {
-    const files = (staged || []).filter((s) => s.status === "ok" || s.status === "dup");
+  async function confirmUpload(files: Staged[]) {
     setStaged(null);
     if (!files.length) return;
     const batchId = newBatchId();
@@ -330,8 +345,8 @@ export function SubmissionsTab({
               <Icon name="uploadCloud" size={28} style={{ color: "var(--c-muted)" }} />
               <span className="dropzone__title">{dragging ? "Release to upload" : "Drop files here"}</span>
               <span className="muted">Notebooks, code, documents or images. Archives (.zip) are unpacked.</span>
-              <Button variant="secondary" icon="folderOpen" onClick={() => fileRef.current?.click()} loading={staging} style={{ marginTop: 6 }}>
-                {stageProgress || "Browse files"}
+              <Button variant="secondary" icon="folderOpen" onClick={() => fileRef.current?.click()} loading={!!stageProgress} style={{ marginTop: 6 }}>
+                Browse files
               </Button>
             </div>
           ) : (
@@ -343,8 +358,8 @@ export function SubmissionsTab({
                   <span className="muted">Archives (.zip) are unpacked.</span>
                 </span>
               </span>
-              <Button variant="secondary" size="sm" icon="folderOpen" onClick={() => fileRef.current?.click()} loading={staging}>
-                {stageProgress || "Browse files"}
+              <Button variant="secondary" size="sm" icon="folderOpen" onClick={() => fileRef.current?.click()} loading={!!stageProgress}>
+                Browse files
               </Button>
             </div>
           )}
@@ -721,7 +736,7 @@ export function SubmissionsTab({
           {graded.length > 0 && <Results asg={asg} graded={graded} items={items} open={resultsOpen} setOpen={setResultsOpen} />}
         </>
       )}
-      <UploadDialog staged={staged} regrade={regrade} onRegrade={setRegrade} onCancel={() => setStaged(null)} onConfirm={confirmUpload} />
+      <UploadDialog staged={staged} progress={stageProgress} regrade={regrade} onRegrade={setRegrade} onCancel={cancelStaging} onConfirm={confirmUpload} />
     </div>
   );
 }
