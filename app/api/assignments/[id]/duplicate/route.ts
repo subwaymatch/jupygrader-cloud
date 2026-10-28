@@ -15,8 +15,8 @@ export const POST = handle(async (req: Request, ctx: { params: Promise<{ id: str
   const now = new Date().toISOString();
   await run(
     `insert into assignment (id, course_id, title, position, points, task_text, task_file, rubric_method, rubric_source, rubric_file, rubric_rows,
-       style, tone, length, notes, version, created_by, created_at, updated_at)
-     values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
+       style, tone, length, notes, ai_images, ai_interactive, version, created_by, created_at, updated_at)
+     values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
     nid,
     asg.course_id,
     (asg.title + " (copy)").slice(0, 200),
@@ -32,6 +32,8 @@ export const POST = handle(async (req: Request, ctx: { params: Promise<{ id: str
     asg.tone,
     asg.length,
     asg.notes,
+    asg.ai_images,
+    asg.ai_interactive,
     me.id,
     now,
     now,

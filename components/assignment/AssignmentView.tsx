@@ -14,6 +14,7 @@ import { saveOrder } from "@/lib/client/sync";
 import { STYLES } from "@/lib/shared/constants";
 import { plural } from "@/lib/shared/format";
 import type { AssignmentData, SubmissionListItem } from "@/lib/shared/types";
+import type { AiDefaults } from "@/components/assignments/Fields";
 import { InstructionsTab, RubricTab, SettingsTab } from "./EditTabs";
 import { SubmissionsTab } from "./SubmissionsTab";
 import { useSubmissions, type ListResponse } from "./useSubmissions";
@@ -40,6 +41,7 @@ export function AssignmentView({
   canManage,
   archived,
   model,
+  aiDefaults,
   initialList,
 }: {
   initialAsg: AssignmentData;
@@ -49,6 +51,7 @@ export function AssignmentView({
   canManage: boolean;
   archived: boolean;
   model: string;
+  aiDefaults: AiDefaults;
   initialList: ListResponse;
 }) {
   const router = useRouter();
@@ -312,7 +315,7 @@ export function AssignmentView({
       )}
       {tab === "instructions" && <InstructionsTab asg={asg} canEdit={canEdit} onSaved={(a) => (setAsg(a), router.refresh())} />}
       {tab === "rubric" && <RubricTab asg={asg} canEdit={canEdit} onSaved={(a) => (setAsg(a), list.refresh(), router.refresh())} />}
-      {tab === "settings" && <SettingsTab asg={asg} canEdit={canEdit} model={model} onSaved={(a) => (setAsg(a), list.refresh())} />}
+      {tab === "settings" && <SettingsTab asg={asg} canEdit={canEdit} model={model} aiDefaults={aiDefaults} onSaved={(a) => (setAsg(a), list.refresh())} />}
 
       {dragging && items.length > 0 && tab === "submissions" && <div className="drop-overlay">Release to upload to {asg.title}</div>}
     </div>

@@ -10,19 +10,19 @@ import { toast } from "@/components/ui/Toast";
 import { api, errorMessage } from "@/lib/client/api";
 import { pointsMismatch, rubricProblem, scaleRows } from "@/lib/shared/rubric";
 import { AnswerKeys, type KeyFile } from "./AnswerKeys";
-import { GradingSettingsFields, InstructionsField, type GradingSettings } from "./Fields";
+import { GradingSettingsFields, InstructionsField, type AiDefaults, type GradingSettings } from "./Fields";
 import { MismatchDialog, type MismatchChoice } from "./MismatchDialog";
 import { PointsField, RubricEditor, type RubricValue } from "./RubricEditor";
 import type { UploadedDoc } from "./uploadDoc";
 
-export function NewAssignmentForm({ courseId, courseName, model }: { courseId: string; courseName: string; model: string }) {
+export function NewAssignmentForm({ courseId, courseName, model, aiDefaults }: { courseId: string; courseName: string; model: string; aiDefaults: AiDefaults }) {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [task, setTask] = useState("");
   const [taskFile, setTaskFile] = useState<UploadedDoc | null>(null);
   const [rubric, setRubric] = useState<RubricValue>({ method: "none", rows: [], source: "", file: null, points: "" });
   const [keys, setKeys] = useState<KeyFile[]>([]);
-  const [settings, setSettings] = useState<GradingSettings>({ style: "balanced", tone: "neutral", length: "standard", notes: "" });
+  const [settings, setSettings] = useState<GradingSettings>({ style: "balanced", tone: "neutral", length: "standard", notes: "", aiImages: null, aiInteractive: null });
   const [error, setError] = useState("");
   const [titleError, setTitleError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -95,7 +95,7 @@ export function NewAssignmentForm({ courseId, courseName, model }: { courseId: s
       <RubricEditor value={rubric} onChange={setRubric} courseId={courseId} taskText={task} hasTaskFile={!!taskFile} />
       <AnswerKeys files={keys} onChange={setKeys} />
       <hr className="divider" />
-      <GradingSettingsFields value={settings} onChange={setSettings} model={model} />
+      <GradingSettingsFields value={settings} onChange={setSettings} model={model} aiDefaults={aiDefaults} />
       {error && (
         <div className="callout callout--danger" role="alert">
           <Icon name="alertCircle" size={15} />

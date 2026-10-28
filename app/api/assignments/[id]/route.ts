@@ -30,7 +30,7 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
   if (cols.title !== undefined && cols.title !== asg.title) what.push("title");
   if (input.taskText !== undefined || input.taskFileKey !== undefined) what.push("instructions");
   if (cols.rubric_rows !== undefined || cols.points !== undefined) what.push("rubric");
-  if (input.style !== undefined || input.tone !== undefined || input.length !== undefined || input.notes !== undefined) what.push("grading settings");
+  if ([input.style, input.tone, input.length, input.notes, input.aiImages, input.aiInteractive].some((v) => v !== undefined)) what.push("grading settings");
   if (input.addAnswerKeys?.length || input.removeAnswerKeys?.length) what.push("answer key");
   if (what.length) await logActivity({ type: "rubrics", user: me, courseId: course.id, text: `Updated the ${what.join(", ")} for ${cols.title ?? asg.title}` });
   const fresh = await first<typeof asg>("select * from assignment where id = ?", id);

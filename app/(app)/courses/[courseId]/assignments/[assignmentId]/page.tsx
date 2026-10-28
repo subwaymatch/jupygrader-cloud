@@ -39,6 +39,7 @@ export default async function AssignmentPage({
       canManage={access.canManage}
       archived={access.archived}
       model={settings.model}
+      aiDefaults={{ aiImages: settings.aiImages, aiInteractive: settings.aiInteractive }}
       initialList={{ items: rows.map((r) => toListItem(r, asg, settings.model)), queue, version: asg.version }}
     />
   );

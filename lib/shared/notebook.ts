@@ -159,15 +159,17 @@ function interactiveKind(d: Record<string, unknown>): string | null {
 
 /**
  * Text rendering of a notebook for the model, with a [C#] marker on every cell.
- * Images beyond `maxImages`, and interactive outputs unless `interactive` is set,
- * are replaced with a short note so they don't use up tokens.
+ * Images beyond the first `maxImages`, and interactive outputs beyond the first
+ * `maxInteractive`, are replaced with a short note so they don't use up tokens.
  */
 export function notebookForAI(
   nb: Notebook,
-  opts: { maxChars?: number; maxImages?: number; interactive?: boolean } = {},
+  opts: { maxChars?: number; maxImages?: number; maxInteractive?: number } = {},
 ): { text: string; images: AiImage[]; refs: Record<string, string> } {
   const maxChars = opts.maxChars ?? 120_000;
   const maxImages = opts.maxImages ?? 6;
+  const maxInteractive = opts.maxInteractive ?? 0;
+  let interactive = 0;
   const cells = originalCells(nb);
   const refs: Record<string, string> = {};
   const images: AiImage[] = [];
@@ -197,14 +199,18 @@ export function notebookForAI(
             const n = images.length + 1;
             images.push({ mime: img, data: joinText(d[img]).replace(/\s+/g, ""), label: `image ${n} (output of ${ref})` });
             outs.push(`[image output: attached as image ${n}]`);
-          } else if (kind && !opts.interactive) outs.push(`[${kind}, not shown to you]`);
+          } else if (kind && interactive >= maxInteractive) outs.push(`[${kind}, not shown to you]`);
           else if (img) {
             // A short repr such as "<Figure size 640x480 with 2 Axes>" still says what was drawn.
             const plain = joinText(d["text/plain"]).trim();
             outs.push(`[image output, not shown to you${plain && plain.length <= 200 ? `: ${plain}` : ""}]`);
-          } else if (d["text/plain"]) outs.push(truncate(joinText(d["text/plain"]), 2000));
-          else if (d["text/html"]) outs.push(truncate(stripHtml(joinText(d["text/html"])), 2000));
-          else if (d["image/svg+xml"]) outs.push("[SVG image output, not shown to you]");
+          } else {
+            // An interactive output that is sent goes as its text form.
+            if (kind) interactive++;
+            if (d["text/plain"]) outs.push(truncate(joinText(d["text/plain"]), 2000));
+            else if (d["text/html"]) outs.push(truncate(stripHtml(joinText(d["text/html"])), 2000));
+            else if (d["image/svg+xml"]) outs.push("[SVG image output, not shown to you]");
+          }
         }
       }
       if (outs.length) block += `Output of ${ref}:\n${outs.join("\n")}\n`;
@@ -343,6 +349,26 @@ export function insertNotebookFeedback(nb: Notebook, result: GradeResult, h: Fee
       jupygrader: { score: h.score, points: h.points, title: h.title, gradedAt: h.gradedAt, sha256: h.sha256 },
     },
     cells,
+  };
+}
+
+/** The element id nbconvert's HTML gives the cell with a marker such as C4 (see notebookForHtml). */
+export const htmlCellAnchor = (ref: string) => "cell-id=jg-" + ref;
+
+/**
+ * insertNotebookFeedback for rendering with nbconvert. Every cell gets an id, original cells
+ * one made from their marker, and nbconvert writes the ids into the HTML (htmlCellAnchor), so
+ * the feedback page can scroll to the cells a comment refers to.
+ */
+export function notebookForHtml(nb: Notebook, result: GradeResult, h: FeedbackHeader): Notebook {
+  const out = insertNotebookFeedback(nb, result, h);
+  let original = 0;
+  let feedback = 0;
+  return {
+    ...out,
+    // Cell ids are part of nbformat 4.5.
+    nbformat_minor: Math.max(out.nbformat_minor, 5),
+    cells: out.cells.map((c) => ({ ...c, id: isFeedbackCell(c) ? `jg-fb${++feedback}` : "jg-" + cellRef(original++) })),
   };
 }
 

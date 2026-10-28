@@ -3,6 +3,7 @@ import { linesDoc } from "@/lib/shared/document";
 import { parseNotebook } from "@/lib/shared/notebook";
 import type { ContentPart } from "@/lib/server/ai";
 import { buildGradingMessages, normalizeGrade, scoreFrom } from "@/lib/server/grading";
+import { cleanOutputPolicy, MAX_AI_IMAGES, outputCount } from "@/lib/shared/constants";
 import { minhash, similarity } from "@/lib/server/similarity";
 
 const nb = parseNotebook(
@@ -74,8 +75,8 @@ describe("prompt", () => {
       answerKeys: [{ name: "key.py", text: "x = 42" }],
       doc: { type: "notebook", nb },
       fileExt: "ipynb",
-      sendImages: true,
-      sendInteractive: false,
+      maxImages: 6,
+      maxInteractive: 0,
     });
     const sys = msgs[0].content as string;
     const parts = msgs[1].content as ContentPart[];
@@ -89,6 +90,23 @@ describe("prompt", () => {
     expect(user).not.toContain("brownisla");
   });
 
+  it("tells the AI to give full points for attempted work under the Completion style, and falls back to Balanced", () => {
+    const sys = (style: string) =>
+      buildGradingMessages({
+        asg: { title: "HW 1", points: 10, task_text: "Do it", notes: "", style, tone: "neutral", length: "standard" },
+        rows,
+        answerKeys: [],
+        doc: { type: "notebook", nb },
+        fileExt: "ipynb",
+        maxImages: 6,
+        maxInteractive: 0,
+      })[0].content as string;
+    expect(sys("completion")).toContain("Grading style: Completion.");
+    expect(sys("completion")).toContain("an item with no attempt gets 0");
+    expect(sys("lenient")).not.toContain("an item with no attempt gets 0");
+    expect(sys("unknown")).toContain("Grading style: Balanced.");
+  });
+
   it("puts the assignment context, which is the same for every file, in its own cacheable part", () => {
     const msgs = buildGradingMessages({
       asg: { title: "HW 1", points: 10, task_text: "Do it", notes: "", style: "balanced", tone: "neutral", length: "standard" },
@@ -96,8 +114,8 @@ describe("prompt", () => {
       answerKeys: [],
       doc: { type: "notebook", nb },
       fileExt: "ipynb",
-      sendImages: false,
-      sendInteractive: false,
+      maxImages: 0,
+      maxInteractive: 0,
     });
     const [context, submission, ...rest] = msgs[1].content as ContentPart[];
     expect(context).toMatchObject({ type: "text", cache: true });
@@ -121,5 +139,19 @@ describe("near-duplicate fingerprints", () => {
   });
   it("ignores very short texts", () => {
     expect(minhash("x = 1")).toBeNull();
+  });
+});
+
+describe("output policies", () => {
+  it("validates settings for images and interactive outputs and counts what to send", () => {
+    expect(cleanOutputPolicy({ mode: "limit", limit: 4 })).toEqual({ mode: "limit", limit: 4 });
+    expect(cleanOutputPolicy({ mode: "limit", limit: 0 })).toBeNull();
+    expect(cleanOutputPolicy({ mode: "limit", limit: MAX_AI_IMAGES + 1 })).toBeNull();
+    expect(cleanOutputPolicy({ mode: "all" })).toEqual({ mode: "all", limit: 6 });
+    expect(cleanOutputPolicy({ mode: "some" })).toBeNull();
+    expect(cleanOutputPolicy(null)).toBeNull();
+    expect(outputCount({ mode: "all", limit: 6 }, MAX_AI_IMAGES)).toBe(MAX_AI_IMAGES);
+    expect(outputCount({ mode: "limit", limit: 3 }, MAX_AI_IMAGES)).toBe(3);
+    expect(outputCount({ mode: "none", limit: 3 }, MAX_AI_IMAGES)).toBe(0);
   });
 });

@@ -1,15 +1,17 @@
+import { waitUntil } from "cloudflare:workers";
 import { baseName, extOf, kindOf, type FileKind, type SubmissionStatus } from "@/lib/shared/constants";
 import {
   annotateParas,
   annotateSource,
   annotatedNotebook,
   docViewCells,
+  htmlNotebook,
   refLabels,
   type DownloadFormat,
   type SourceDoc,
 } from "@/lib/shared/document";
 import { feedbackHtml, feedbackJson, feedbackTxt, type ExportContext } from "@/lib/shared/exports";
-import { parseNotebook, notebookPlainText } from "@/lib/shared/notebook";
+import { parseNotebook, notebookPlainText, type FeedbackHeader } from "@/lib/shared/notebook";
 import type {
   GradeResult,
   GradedMeta,
@@ -21,12 +23,12 @@ import type {
 } from "@/lib/shared/types";
 import type { AssignmentRow, CourseRow, SubmissionRow } from "./access";
 import { all, first, parseJson, run } from "./db";
-import { appUrl } from "./env";
+import { appUrl, getEnv } from "./env";
 import { badRequest } from "./http";
 import { newId, newShareToken, sha256Hex } from "./ids";
-import { nbconvertHtml } from "./nbconvert";
+import { hasNbconvert, nbconvertHtml } from "./nbconvert";
 import { NEAR_THRESHOLD, minhash, similarity } from "./similarity";
-import { getBytes, putFile, submissionDoc, submissionKey } from "./storage";
+import { getBytes, notebookHtmlKey, putFile, submissionDoc, submissionKey } from "./storage";
 
 export function isOutdated(row: Pick<SubmissionRow, "graded_meta">, asg: Pick<AssignmentRow, "version" | "style">, model?: string) {
   const g = parseJson<GradedMeta | null>(row.graded_meta, null);
@@ -80,6 +82,7 @@ export async function toDetail(row: SubmissionRow, asg: AssignmentRow, model?: s
     studentSet: !!row.student_set,
     cells: docViewCells(doc, result?.comments ?? []),
     refLabels: refLabels(doc),
+    htmlUrl: await notebookHtmlVersion(row, asg).then((v) => v && `/api/submissions/${row.id}/download?format=html&inline=1&v=${v}`),
   };
 }
 
@@ -218,26 +221,78 @@ export function exportContext(row: SubmissionRow, asg: AssignmentRow, course: Co
 
 export type DownloadFile = { name: string; data: string | Uint8Array; type: string };
 
-function feedbackHeader(row: SubmissionRow, asg: AssignmentRow, ctx: ExportContext) {
-  return { title: asg.title, score: ctx.score, points: asg.points, gradedAt: ctx.graded?.gradedAt, sha256: row.sha256 };
+function feedbackHeader(row: SubmissionRow, asg: AssignmentRow): FeedbackHeader {
+  const graded = parseJson<GradedMeta | null>(row.graded_meta, null);
+  return { title: asg.title, score: row.score ?? 0, points: asg.points, gradedAt: graded?.gradedAt, sha256: row.sha256 };
+}
+
+// Graded notebooks are rendered with nbconvert once, when grading finishes, and the HTML is
+// stored next to the file, so "Notebook as HTML" downloads and the feedback page don't wait
+// for the container. A stored copy is used only while its fingerprint matches the submission.
+
+// Bump when the notebook sent to nbconvert changes, so stored copies are made again.
+const NOTEBOOK_HTML_VERSION = 1;
+
+const rendersHtml = (row: SubmissionRow) => row.kind === "notebook" && !!row.r2_key && !!row.result && row.score !== null;
+
+/** Changes whenever the HTML would: a different file, grade, feedback, assignment title or points. */
+function notebookHtmlFingerprint(row: SubmissionRow, asg: AssignmentRow): Promise<string> {
+  return sha256Hex(JSON.stringify([NOTEBOOK_HTML_VERSION, asg.title, asg.points, row.file_name, row.sha256, row.score, row.graded_meta, row.result]));
+}
+
+/** The stored nbconvert HTML of a graded notebook, or null when there is none or it's out of date. */
+export async function storedNotebookHtml(row: SubmissionRow, asg: AssignmentRow): Promise<ReadableStream<Uint8Array> | null> {
+  if (!rendersHtml(row)) return null;
+  const obj = await getEnv().FILES.get(notebookHtmlKey(row.r2_key!));
+  if (!obj) return null;
+  if (obj.customMetadata?.fp === (await notebookHtmlFingerprint(row, asg))) return obj.body;
+  await obj.body.cancel();
+  return null;
 }
 
 /**
- * "Notebook as HTML" rendered by nbconvert (lib/server/nbconvert.ts) from the graded
- * notebook, feedback cells included. Null when the submission isn't a notebook or
- * nbconvert isn't available; callers then use buildDownload's built-in HTML.
+ * Renders a graded notebook, feedback cells included, with nbconvert (lib/server/nbconvert.ts)
+ * and stores the HTML next to the file. Null when the file isn't a graded notebook or nbconvert
+ * isn't available; callers then use buildDownload's built-in HTML.
  */
+export async function renderNotebookHtml(row: SubmissionRow, asg: AssignmentRow): Promise<Uint8Array | null> {
+  const result = parseJson<GradeResult | null>(row.result, null);
+  if (!rendersHtml(row) || !result || !hasNbconvert()) return null;
+  const doc = await submissionDoc(row);
+  if (doc.type !== "notebook") return null;
+  const fp = await notebookHtmlFingerprint(row, asg);
+  const stream = await nbconvertHtml(htmlNotebook(doc, result, feedbackHeader(row, asg)), `${asg.title}: ${row.file_name}`);
+  if (!stream) return null;
+  let html: Uint8Array;
+  try {
+    html = new Uint8Array(await new Response(stream).arrayBuffer());
+  } catch (err) {
+    console.error("nbconvert response failed", row.id, err);
+    return null;
+  }
+  await putFile(notebookHtmlKey(row.r2_key!), html, "text/html; charset=utf-8", { fp });
+  return html;
+}
+
+/**
+ * Version of the notebook's stored HTML, for the URL of a page's frame (a new grade gives a new
+ * version, so the frame reloads), or null when none is stored yet. A missing or out-of-date copy
+ * is made in the background, for downloads and the next visit; the download route also makes a
+ * stale copy again when the frame asks for it.
+ */
+export async function notebookHtmlVersion(row: SubmissionRow, asg: AssignmentRow): Promise<string | null> {
+  if (!rendersHtml(row) || row.status !== "graded") return null;
+  const [stored, fp] = await Promise.all([getEnv().FILES.head(notebookHtmlKey(row.r2_key!)), notebookHtmlFingerprint(row, asg)]);
+  if (stored?.customMetadata?.fp !== fp) waitUntil(renderNotebookHtml(row, asg).catch((err) => console.error("nbconvert render failed", row.id, err)));
+  return stored ? fp.slice(0, 16) : null;
+}
+
+/** "Notebook as HTML": the stored copy, or a fresh one from nbconvert. Null when neither is available. */
 export async function nbconvertDownload(
   row: SubmissionRow,
   asg: AssignmentRow,
-  course: CourseRow,
-  req?: Request,
-): Promise<{ name: string; data: ReadableStream<Uint8Array>; type: string } | null> {
-  if (row.kind !== "notebook") return null;
-  const doc = await submissionDoc(row);
-  if (doc.type !== "notebook") return null;
-  const ctx = exportContext(row, asg, course, doc, req);
-  const html = await nbconvertHtml(annotatedNotebook(doc, ctx.result, feedbackHeader(row, asg, ctx)), `${asg.title}: ${row.file_name}`);
+): Promise<{ name: string; data: ReadableStream<Uint8Array> | Uint8Array; type: string } | null> {
+  const html = (await storedNotebookHtml(row, asg)) ?? (await renderNotebookHtml(row, asg));
   return html && { name: `${baseName(row.file_name)}_graded.html`, data: html, type: "text/html; charset=utf-8" };
 }
 
@@ -257,7 +312,7 @@ export async function buildDownload(
   }
   const doc = await submissionDoc(row);
   const ctx = exportContext(row, asg, course, doc, req);
-  const h = feedbackHeader(row, asg, ctx);
+  const h = feedbackHeader(row, asg);
   const cells = () => docViewCells(doc, ctx.result.comments);
   switch (format) {
     case "html":
@@ -288,6 +343,9 @@ export function preferredFormat(kind: string, file: string): DownloadFormat {
   if (kind === "doc" && (x === "md" || x === "txt")) return "doc";
   return "html";
 }
+
+/** For HTML shown in a frame on a Jupygrader page: no scripts, no outside requests, framed only by this site. */
+export const INLINE_CSP = "default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src https://fonts.gstatic.com; frame-ancestors 'self'";
 
 export function contentDisposition(name: string): string {
   const ascii = name.replace(/[^\x20-\x7e]/g, "_").replace(/"/g, "'");

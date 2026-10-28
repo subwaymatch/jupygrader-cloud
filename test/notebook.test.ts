@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { annotateParas, annotateSource, docViewCells, linesDoc, parasDoc } from "@/lib/shared/document";
-import { insertNotebookFeedback, notebookForAI, notebookRefLabels, parseNotebook, serializeNotebook } from "@/lib/shared/notebook";
+import {
+  htmlCellAnchor,
+  insertNotebookFeedback,
+  notebookForAI,
+  notebookForHtml,
+  notebookRefLabels,
+  parseNotebook,
+  serializeNotebook,
+} from "@/lib/shared/notebook";
 import type { GradeResult } from "@/lib/shared/types";
 
 const raw = JSON.stringify({
@@ -78,7 +86,11 @@ describe("notebooks", () => {
     expect(off).toContain("[interactive HTML output, not shown to you]");
     expect(off).not.toContain("Figure({");
     expect(off).toContain("0  1  2");
-    expect(notebookForAI(nb, { interactive: true }).text).toContain("Figure({'data': [...]})");
+    expect(notebookForAI(nb, { maxInteractive: Infinity }).text).toContain("Figure({'data': [...]})");
+    // With a limit, the first ones are sent and the rest get the note.
+    const one = notebookForAI(nb, { maxInteractive: 1 }).text;
+    expect(one).toContain("Figure({'data': [...]})");
+    expect(one).toContain("[interactive HTML output, not shown to you]");
   });
 
   it("inserts a summary cell and feedback cells, keeping the original cells", () => {
@@ -110,6 +122,20 @@ describe("notebooks", () => {
     old.cells.forEach((c: { id?: string }) => delete c.id);
     const out = insertNotebookFeedback(parseNotebook(JSON.stringify(old)), result, { title: "HW", score: 7.5, points: 10 });
     expect(out.cells.some((c) => "id" in c)).toBe(false);
+  });
+
+  it("gives every cell an id from its marker for nbconvert's HTML, whatever the nbformat minor", () => {
+    const old = JSON.parse(raw);
+    old.nbformat_minor = 4;
+    old.cells.forEach((c: { id?: string }) => delete c.id);
+    const out = notebookForHtml(parseNotebook(JSON.stringify(old)), result, { title: "HW", score: 7.5, points: 10 });
+    expect(out.nbformat_minor).toBe(5);
+    expect(out.cells.map((c) => c.id)).toEqual(["jg-fb1", "jg-C1", "jg-C2", "jg-fb2", "jg-C3", "jg-fb3", "jg-C4"]);
+    expect(htmlCellAnchor("C2")).toBe("cell-id=jg-C2");
+    // The same input gives the same notebook, so nbconvert's output can be compared and stored.
+    expect(serializeNotebook(notebookForHtml(parseNotebook(raw), result, { title: "HW", score: 7.5, points: 10 }))).toBe(
+      serializeNotebook(notebookForHtml(parseNotebook(raw), result, { title: "HW", score: 7.5, points: 10 })),
+    );
   });
 
   it("rejects files that aren't notebooks", () => {

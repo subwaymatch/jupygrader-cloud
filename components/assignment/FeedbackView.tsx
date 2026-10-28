@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { flashFrameCell, NotebookFrame } from "@/components/notebook/NotebookFrame";
 import { cellDomId, NotebookView } from "@/components/notebook/NotebookView";
 import { Button, IconButton } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/Dialog";
@@ -67,6 +68,9 @@ export function FeedbackView({
   const [origin, setOrigin] = useState("");
   const bodyRef = useRef<HTMLDivElement>(null);
   const paneRef = useRef<HTMLElement>(null);
+  const frameRef = useRef<HTMLIFrameElement>(null);
+  // A cell to show once the notebook's frame has loaded.
+  const pendingCell = useRef<string | null>(null);
   const ahead = useRef(new Map<string, { at: number; detail: Promise<SubmissionDetail> }>());
   const navSeq = useRef(0);
   const asgHref = `/courses/${courseId}/assignments/${d.assignmentId}`;
@@ -200,7 +204,14 @@ export function FeedbackView({
     // Narrow screens show the file or the feedback, with tabs to switch.
     if (window.matchMedia("(max-width: 1100px)").matches) setMobileTab("file");
     else if (!split) toggleSplit();
-    setTimeout(() => flash(cellDomId(ref, "pane")), 60);
+    setTimeout(() => {
+      if (!d.htmlUrl) flash(cellDomId(ref, "pane"));
+      else if (!flashFrameCell(frameRef.current, ref)) pendingCell.current = ref;
+    }, 60);
+  };
+  const frameLoaded = () => {
+    if (pendingCell.current) flashFrameCell(frameRef.current, pendingCell.current);
+    pendingCell.current = null;
   };
 
   const graded = d.status === "graded" && d.result;
@@ -263,8 +274,8 @@ export function FeedbackView({
       </div>
       <div className="fb-main" aria-busy={loading}>
         {(split || mobileTab === "file") && (
-          <section className="fb-pane" ref={paneRef} aria-label="Submitted file">
-            <NotebookView cells={d.cells} scope="pane" />
+          <section className={"fb-pane" + (d.htmlUrl ? " fb-pane--frame" : "")} ref={paneRef} aria-label="Submitted file">
+            {d.htmlUrl ? <NotebookFrame key={d.id} src={d.htmlUrl} frameRef={frameRef} onLoad={frameLoaded} /> : <NotebookView cells={d.cells} scope="pane" />}
           </section>
         )}
         <div className="fb-side">

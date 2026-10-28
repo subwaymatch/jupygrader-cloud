@@ -1,4 +1,4 @@
-import { AI_PROVIDERS, isAiProvider, type AiProvider, type Effort } from "@/lib/shared/constants";
+import { AI_PROVIDERS, cleanOutputPolicy, isAiProvider, type AiProvider, type Effort, type OutputPolicy } from "@/lib/shared/constants";
 import { all, run } from "./db";
 import { decryptSecret, encryptSecret } from "./crypto";
 import { getEnv } from "./env";
@@ -21,8 +21,9 @@ export type SiteSettings = {
   capOn: boolean;
   concurrency: number;
   retention: number;
-  sendImages: boolean;
-  sendInteractive: boolean;
+  /** Notebook output images and interactive outputs sent to the AI, unless an assignment sets its own. */
+  aiImages: OutputPolicy;
+  aiInteractive: OutputPolicy;
   reasoningEffort: "" | Effort;
 };
 
@@ -44,8 +45,8 @@ export function defaultSettings(): SiteSettings {
     capOn: true,
     concurrency: 3,
     retention: 180,
-    sendImages: false,
-    sendInteractive: false,
+    aiImages: { mode: "none", limit: 6 },
+    aiInteractive: { mode: "none", limit: 6 },
     reasoningEffort: "",
   };
 }
@@ -53,10 +54,17 @@ export function defaultSettings(): SiteSettings {
 export async function getSettings(): Promise<SiteSettings> {
   const rows = await all<{ key: string; value: string }>("select key, value from setting where key != 'aiApiKey'");
   const s = defaultSettings() as Record<string, unknown>;
+  // These were on/off settings before aiImages and aiInteractive: on meant up to 6 images, and every interactive output.
+  for (const r of rows) {
+    if (r.key === "sendImages" && r.value === "true") s.aiImages = { mode: "limit", limit: 6 };
+    if (r.key === "sendInteractive" && r.value === "true") s.aiInteractive = { mode: "all", limit: 6 };
+  }
   for (const r of rows) {
     if (!(r.key in s)) continue;
     try {
-      s[r.key] = JSON.parse(r.value);
+      const v = JSON.parse(r.value);
+      if (r.key === "aiImages" || r.key === "aiInteractive") s[r.key] = cleanOutputPolicy(v) ?? s[r.key];
+      else s[r.key] = v;
     } catch {
       /* ignore bad values */
     }

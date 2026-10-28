@@ -8,8 +8,9 @@ const zipFile = (name: string, bytes: Uint8Array) => new File([bytes as BlobPart
 
 async function read(files: File[]) {
   const calls: [number, number][] = [];
-  const out = await readFiles(files, (done, total) => calls.push([done, total]));
-  return { out, last: calls.at(-1) };
+  const opened: string[] = [];
+  const out = await readFiles(files, (done, total, zip) => (zip ? opened.push(zip) : calls.push([done, total])));
+  return { out, last: calls.at(-1), opened };
 }
 
 describe("readFiles", () => {
@@ -23,7 +24,7 @@ describe("readFiles", () => {
       "subs/.DS_Store": strToU8("x"),
       "subs/empty.py": new Uint8Array(),
     });
-    const { out, last } = await read([zipFile("submissions.zip", zip)]);
+    const { out, last, opened } = await read([zipFile("submissions.zip", zip)]);
     expect(out.map((r) => [r.name, r.status, r.zip])).toEqual([
       ["alice_1_10_hw.ipynb", "ok", "submissions.zip"],
       ["alice_1_11_hw.html", "skip", "submissions.zip"],
@@ -32,6 +33,7 @@ describe("readFiles", () => {
     expect(out[0].file.type).toBe("application/x-ipynb+json");
     expect(await out[0].file.text()).toBe('{"cells": []}');
     expect(last).toEqual([2, 2]);
+    expect(opened).toEqual(["submissions.zip"]);
   });
 
   it("keeps loose .html files and reports empty ones", async () => {

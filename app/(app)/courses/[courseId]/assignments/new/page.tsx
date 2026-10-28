@@ -15,7 +15,7 @@ export default async function NewAssignmentPage({ params }: { params: Promise<{ 
   const s = await getSettings();
   return (
     <div className="page page--narrow">
-      <NewAssignmentForm courseId={courseId} courseName={access.course.name} model={s.model} />
+      <NewAssignmentForm courseId={courseId} courseName={access.course.name} model={s.model} aiDefaults={{ aiImages: s.aiImages, aiInteractive: s.aiInteractive }} />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { StudentNotebook } from "@/components/notebook/NotebookFrame";
 import { NotebookView } from "@/components/notebook/NotebookView";
 import { Icon } from "@/components/ui/Icon";
 import { Logo } from "@/components/ui/Logo";
@@ -7,6 +8,7 @@ import { parseJson } from "@/lib/server/db";
 import { currentUser } from "@/lib/server/session";
 import { sharedSubmission } from "@/lib/server/share";
 import { submissionDoc } from "@/lib/server/storage";
+import { notebookHtmlVersion } from "@/lib/server/submissions";
 import { docViewCells, labelFor, refLabels } from "@/lib/shared/document";
 import { fmtScore } from "@/lib/shared/format";
 import type { GradeResult, GradedMeta } from "@/lib/shared/types";
@@ -48,6 +50,8 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
   const labels = refLabels(doc);
   const when = graded?.gradedAt ? new Date(graded.gradedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "";
   const fbFormat = sub.kind === "notebook" ? "ipynb" : "html";
+  // Graded notebooks show their nbconvert HTML, feedback cells included, once it has been made.
+  const htmlVersion = await notebookHtmlVersion(sub, asg);
 
   return (
     <div className="student-page">
@@ -112,9 +116,15 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
               {sub.kind === "notebook" ? "Notebook with feedback" : "Download feedback"}
             </a>
           </div>
-          <div className="student-card" style={{ background: "var(--c-bg-subtle)", boxShadow: "none", padding: "16px 0" }}>
-            <NotebookView cells={cells} scope="nb" />
-          </div>
+          {htmlVersion ? (
+            <div className="student-card" style={{ padding: 0, overflow: "hidden" }}>
+              <StudentNotebook src={`/r/${token}/download?format=html&inline=1&v=${htmlVersion}`} />
+            </div>
+          ) : (
+            <div className="student-card" style={{ background: "var(--c-bg-subtle)", boxShadow: "none", padding: "16px 0" }}>
+              <NotebookView cells={cells} scope="nb" />
+            </div>
+          )}
         </section>
 
         <footer className="muted" style={{ fontSize: 13, lineHeight: 1.6 }}>

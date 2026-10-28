@@ -1,5 +1,8 @@
 import { getEnv } from "./env";
 
+/** False when the deployment has no nbconvert Durable Object (see "nbconvert container" in the README). */
+export const hasNbconvert = () => !!getEnv().NBCONVERT;
+
 /**
  * Converts a notebook (JSON text) to HTML with nbconvert, which runs in a
  * Cloudflare Container (containers/nbconvert, worker/nbconvert.ts). Returns the
