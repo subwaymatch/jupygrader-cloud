@@ -1,4 +1,5 @@
 import handler from "vinext/server/fetch-handler";
+import { noteServedOrigin } from "@/lib/server/env";
 import { cronTick, processSubmission, retentionSweep } from "@/lib/server/grading";
 
 // Durable Object that runs nbconvert in a container, for "Notebook as HTML" downloads.
@@ -7,7 +8,10 @@ export { Nbconvert } from "./nbconvert";
 type GradingMessage = { submissionId: string };
 
 export default {
-  fetch: handler.fetch,
+  fetch(request, env, ctx) {
+    noteServedOrigin(request);
+    return handler.fetch(request, env, ctx);
+  },
 
   /** Grading jobs. Each message is one submission; busy or paused jobs are retried later. */
   async queue(batch: MessageBatch<GradingMessage>) {

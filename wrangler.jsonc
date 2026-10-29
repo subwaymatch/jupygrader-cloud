@@ -78,5 +78,28 @@
     // vite dev can't pull from the Cloudflare registry.
     "enable_containers": false
   },
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
+  // Worker Previews: Workers Builds deploys one per pull request branch (npx wrangler preview) and
+  // posts its URL on the pull request. Previews use staging resources, never production data.
+  // - APP_URL is left unset, so links use the Preview's own address.
+  // - Files aren't graded in Previews: Queue consumers and Cron Triggers only run in production.
+  // - Notebook HTML uses the built-in renderer; the nbconvert container isn't bound.
+  // - Secrets (BETTER_AUTH_SECRET, RESEND_API_KEY) are set under Builds > Previews Base in the dashboard.
+  // Apply new migrations to the staging database with `npm run db:migrate:preview`.
+  "previews": {
+    "d1_databases": [
+      {
+        "binding": "DB",
+        "database_name": "jupygrader-preview",
+        "database_id": "ef87b0e0-69be-409b-b284-b6c00ba10854",
+        "migrations_dir": "migrations"
+      }
+    ],
+    "r2_buckets": [
+      {
+        "binding": "FILES",
+        "bucket_name": "jupygrader-preview-files"
+      }
+    ]
+  }
 }

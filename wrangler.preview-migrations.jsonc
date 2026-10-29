@@ -1,0 +1,14 @@
+{
+  // Only for `npm run db:migrate:preview`: applies migrations to the staging database that Worker
+  // Previews use (see "previews" in wrangler.jsonc). Keep the database in sync with that block.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "jupygrader-cloud",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "jupygrader-preview",
+      "database_id": "ef87b0e0-69be-409b-b284-b6c00ba10854",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

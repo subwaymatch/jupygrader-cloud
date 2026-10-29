@@ -10,6 +10,7 @@
     "deploy": "vinext-cloudflare deploy --config dist/server/wrangler.json",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
+    "db:migrate:preview": "wrangler d1 migrations apply DB --remote --config wrangler.preview-migrations.jsonc",
     "typecheck": "wrangler types --env-interface CloudflareEnv >/dev/null && tsc --noEmit",
     "test": "vitest run",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv"

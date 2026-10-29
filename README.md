@@ -102,6 +102,33 @@ When you update a deployment, run `npm run db:migrate:remote` before `npm run de
 
 To serve the app on your own domain, add a [custom domain](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/) to the Worker and update `APP_URL`.
 
+### Pull request previews
+
+With Workers Builds connected to the repository and **Builds for Preview branches** turned on (Settings > Builds > Previews Base, Preview command `npx wrangler preview`), every push to a branch other than `main` deploys a [Worker Preview](https://developers.cloudflare.com/workers/previews/) and posts its URL on the pull request.
+
+Previews use the staging resources in the `previews` block of `wrangler.jsonc` (the `jupygrader-preview` D1 database and the `jupygrader-preview-files` R2 bucket), never production data. To set up your own:
+
+1. Create the staging database and bucket, and put their names and the database ID in the `previews` block and in `wrangler.preview-migrations.jsonc`:
+
+   ```bash
+   npx wrangler d1 create jupygrader-preview
+   npx wrangler r2 bucket create jupygrader-preview-files
+   ```
+
+2. Apply the migrations to the staging database, and again whenever there are new files in `migrations/`:
+
+   ```bash
+   npm run db:migrate:preview
+   ```
+
+3. Under Settings > Builds > Previews Base in the dashboard, add a `BETTER_AUTH_SECRET` secret for previews (any long random string, different from production), and `RESEND_API_KEY` if previews should send email.
+
+What differs in a preview:
+- Uploaded files are not graded. Queue consumers and Cron Triggers only run in production.
+- `APP_URL` is not set, so links in emails use the preview's own address.
+- Notebook HTML uses the built-in renderer, because the nbconvert container is not bound.
+- All previews share the staging database. On a new staging database, open any preview and create the first account; it becomes the administrator for every preview.
+
 ### Without a queue
 
 The queue is optional. Remove the `queues` block from `wrangler.jsonc` and the every-minute Cron Trigger grades queued files instead, up to the "Files graded at once" setting per minute. Grading is slower to start but nothing else changes.
@@ -169,6 +196,7 @@ test/                   unit tests (Vitest)
 | `npm start` | Run the production build locally with Wrangler |
 | `npm run deploy` | Build and deploy to Cloudflare |
 | `npm run db:migrate:local` / `db:migrate:remote` | Apply D1 migrations |
+| `npm run db:migrate:preview` | Apply D1 migrations to the staging database used by pull request previews |
 | `npm test` | Unit tests |
 | `npm run typecheck` | Generate binding types and type-check |
 
