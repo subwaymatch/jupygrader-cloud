@@ -10,7 +10,8 @@ function createAuth() {
   const base = appUrl();
   return betterAuth({
     appName: "Jupygrader",
-    baseURL: base,
+    // Without APP_URL (Worker Previews), better-auth takes the address from each request.
+    baseURL: env.APP_URL ? base : undefined,
     secret: env.BETTER_AUTH_SECRET,
     database: env.DB,
     trustedOrigins: async (request) => [base, request ? new URL(request.url).origin : undefined],

@@ -22,6 +22,14 @@ export function getEnv(): AppEnv {
   return workerEnv as AppEnv;
 }
 
+// Worker Previews have no APP_URL (their address depends on the branch), so links built outside a
+// request, such as in emails, use the address the Worker was last reached at.
+let servedOrigin: string | null = null;
+
+export function noteServedOrigin(req: Request): void {
+  if (!getEnv().APP_URL) servedOrigin = new URL(req.url).origin;
+}
+
 /** Public base URL without a trailing slash. */
 export function appUrl(req?: Request): string {
   const configured = getEnv().APP_URL?.replace(/\/+$/, "");
@@ -29,5 +37,5 @@ export function appUrl(req?: Request): string {
     const origin = new URL(req.url).origin;
     if (!configured || configured.includes("localhost")) return origin;
   }
-  return configured || "http://localhost:5173";
+  return configured || servedOrigin || "http://localhost:5173";
 }
