@@ -55,7 +55,7 @@ export function CourseSettingsForm({
     try {
       await api(`/api/courses/${course.id}/reset`, { method: "POST" });
       toast(`Reset ${course.name}`);
-      router.push(`/courses/${course.id}`);
+      router.push(`/app/courses/${course.id}`);
       router.refresh();
     } catch (err) {
       toast(errorMessage(err), { error: true });
@@ -73,7 +73,7 @@ export function CourseSettingsForm({
     try {
       await api(`/api/courses/${course.id}`, { method: "DELETE" });
       toast(`Deleted ${course.name}`);
-      router.push("/courses");
+      router.push("/app/courses");
       router.refresh();
     } catch (err) {
       toast(errorMessage(err), { error: true });

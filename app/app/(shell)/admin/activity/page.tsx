@@ -22,7 +22,7 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
     ...(type ? [type] : []),
   );
   const pages = Math.max(1, Math.ceil(n / PAGE));
-  const href = (t: string | null, p = 1) => `/admin/activity?${new URLSearchParams({ ...(t ? { type: t } : {}), ...(p > 1 ? { page: String(p) } : {}) })}`;
+  const href = (t: string | null, p = 1) => `/app/admin/activity?${new URLSearchParams({ ...(t ? { type: t } : {}), ...(p > 1 ? { page: String(p) } : {}) })}`;
   const oldest = await first<{ at: string }>("select min(at) at from activity");
   return (
     <div className="page">

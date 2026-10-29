@@ -16,7 +16,7 @@ export function ErrorView({ reset, page = false }: { reset: () => void; page?: b
           <Button variant="primary" icon="refresh" onClick={reset}>
             Try again
           </Button>
-          <LinkButton href="/courses" variant="secondary">
+          <LinkButton href="/app/courses" variant="secondary">
             Back to courses
           </LinkButton>
         </div>

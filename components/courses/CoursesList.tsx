@@ -9,7 +9,7 @@ import type { CourseSummary } from "@/lib/shared/types";
 
 function Row({ c }: { c: CourseSummary }) {
   return (
-    <Link href={`/courses/${c.id}`} className="list-row course-row">
+    <Link href={`/app/courses/${c.id}`} className="list-row course-row">
       <div className="list-row__main">
         <span className="list-row__title">{c.name}</span>
         <span className="list-row__meta">
@@ -48,7 +48,7 @@ export function CoursesList({ courses, isAdmin }: { courses: CourseSummary[]; is
                 : "You're not in any courses yet. Add a course to start grading, or ask a teacher to invite you to theirs."}
             </p>
             <div>
-              <Link href="/courses/new" className="btn btn--primary">
+              <Link href="/app/courses/new" className="btn btn--primary">
                 <Icon name="plus" size={15} />
                 Add course
               </Link>

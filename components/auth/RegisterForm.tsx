@@ -50,7 +50,7 @@ export function RegisterForm({ firstRun, openReg }: { firstRun: boolean; openReg
     setBusy(true);
     try {
       const res = await api<{ status: string }>("/api/register", { body: { name, email, password } });
-      if (res.status === "active") window.location.assign("/courses");
+      if (res.status === "active") window.location.assign("/app/courses");
       else setPending(email.trim());
     } catch (err) {
       setError(errorMessage(err));

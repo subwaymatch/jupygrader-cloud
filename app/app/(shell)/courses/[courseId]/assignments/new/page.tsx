@@ -11,7 +11,7 @@ export default async function NewAssignmentPage({ params }: { params: Promise<{ 
   const me = await pageUser();
   const access = await getCourseAccess(me, courseId);
   if (!access) notFound();
-  if (!access.canManage || access.archived) redirect(`/courses/${courseId}`);
+  if (!access.canManage || access.archived) redirect(`/app/courses/${courseId}`);
   const s = await getSettings();
   return (
     <div className="page page--narrow">

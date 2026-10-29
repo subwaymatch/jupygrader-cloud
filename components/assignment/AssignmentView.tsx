@@ -138,7 +138,7 @@ export function AssignmentView({
       }}
     >
       <title>{asg.title + " · Jupygrader"}</title>
-      <Link href={`/courses/${courseId}`} className="back-link">
+      <Link href={`/app/courses/${courseId}`} className="back-link">
         <Icon name="arrowLeft" size={14} />
         Back to {courseName}
       </Link>
@@ -246,7 +246,7 @@ export function AssignmentView({
                     try {
                       const r = await api<{ id: string }>(`/api/assignments/${asg.id}/duplicate`, { method: "POST" });
                       toast(`Duplicated ${asg.title}`);
-                      router.push(`/courses/${courseId}/assignments/${r.id}?tab=rubric`);
+                      router.push(`/app/courses/${courseId}/assignments/${r.id}?tab=rubric`);
                       router.refresh();
                     } catch (err) {
                       toast(errorMessage(err), { error: true });
@@ -269,7 +269,7 @@ export function AssignmentView({
                     try {
                       await api(`/api/assignments/${asg.id}`, { method: "DELETE" });
                       toast(`Deleted ${asg.title}`);
-                      router.push(`/courses/${courseId}`);
+                      router.push(`/app/courses/${courseId}`);
                       router.refresh();
                     } catch (err) {
                       toast(errorMessage(err), { error: true });

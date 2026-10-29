@@ -12,7 +12,7 @@ export default async function CoursesPage() {
     <div className="page">
       <div className="page-head">
         <h1 className="h1">Courses</h1>
-        <LinkButton href="/courses/new" variant="primary" icon="plus">
+        <LinkButton href="/app/courses/new" variant="primary" icon="plus">
           Add course
         </LinkButton>
       </div>

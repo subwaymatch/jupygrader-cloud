@@ -124,7 +124,7 @@ export function Overview({ data }: { data: OverviewData }) {
         <section className="section">
           <div className="section-head">
             <h2 className="h2">AI spend this month</h2>
-            <Link href="/admin/settings">Limits</Link>
+            <Link href="/app/admin/settings">Limits</Link>
           </div>
           <div className="row" style={{ alignItems: "baseline" }}>
             <span className="stat-tile__value">{fmtUsd(data.spend.cost)}</span>
@@ -162,7 +162,7 @@ export function Overview({ data }: { data: OverviewData }) {
           </h2>
           <div className="list">
             {data.courses.map((c) => (
-              <Link key={c.id} href={`/courses/${c.id}`} className="list-row">
+              <Link key={c.id} href={`/app/courses/${c.id}`} className="list-row">
                 <div className="list-row__main">
                   <span style={{ fontWeight: 500 }}>{c.name}</span>
                   <span className="muted">
@@ -181,7 +181,7 @@ export function Overview({ data }: { data: OverviewData }) {
         <section className="section">
           <div className="section-head">
             <h2 className="h2">Recent activity</h2>
-            <Link href="/admin/activity">View all</Link>
+            <Link href="/app/admin/activity">View all</Link>
           </div>
           <div className="list">
             {data.recent.map((a) => (

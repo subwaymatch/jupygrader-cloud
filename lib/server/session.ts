@@ -46,6 +46,6 @@ export async function pageUser(): Promise<Me> {
 
 export async function pageAdmin(): Promise<Me> {
   const u = await pageUser();
-  if (!u.isAdmin) redirect("/courses");
+  if (!u.isAdmin) redirect("/app/courses");
   return u;
 }

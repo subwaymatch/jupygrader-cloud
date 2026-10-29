@@ -26,7 +26,7 @@ export function NotFound({ page = false }: { page?: boolean }) {
         <h1 className="h1">Page not found</h1>
         <p className="muted">The page may have moved, the link may be out of date, or you may not have access to it.</p>
         <div className="dead-end__actions">
-          <LinkButton href="/courses" variant="primary" icon="arrowLeft">
+          <LinkButton href="/app/courses" variant="primary" icon="arrowLeft">
             Back to courses
           </LinkButton>
         </div>

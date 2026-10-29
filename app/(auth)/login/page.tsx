@@ -12,7 +12,7 @@ const ERRORS: Record<string, string> = {
 };
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; error?: string }> }) {
-  if (await currentUser()) redirect("/courses");
+  if (await currentUser()) redirect("/app/courses");
   if ((await countUsers()) === 0) redirect("/register");
   const sp = await searchParams;
   const settings = await getSettings();

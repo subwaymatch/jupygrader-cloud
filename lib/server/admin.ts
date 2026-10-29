@@ -30,7 +30,7 @@ export async function overviewData() {
       title: `${f.n} file${f.n === 1 ? "" : "s"} failed to grade`,
       detail: `${f.title}, ${f.course}`,
       cta: "Open",
-      href: `/courses/${f.course_id}/assignments/${f.assignment_id}`,
+      href: `/app/courses/${f.course_id}/assignments/${f.assignment_id}`,
     });
   const invites = await all<{ email: string; sent_at: string; expires_at: string }>("select email, sent_at, expires_at from invitation where status = 'pending'");
   const nowIso = new Date(now).toISOString();
@@ -42,7 +42,7 @@ export async function overviewData() {
       title: `${stale.length} invitation${stale.length === 1 ? "" : "s"} pending for over a week`,
       detail: stale.slice(0, 4).map((i) => i.email).join(", ") + (stale.length > 4 ? ` and ${stale.length - 4} more` : ""),
       cta: "Review",
-      href: "/admin/invitations",
+      href: "/app/admin/invitations",
     });
   if (expired.length)
     tasks.push({
@@ -50,14 +50,14 @@ export async function overviewData() {
       title: `${expired.length} invitation${expired.length === 1 ? "" : "s"} expired`,
       detail: expired.slice(0, 4).map((i) => i.email).join(", ") + `. Resend or remove ${expired.length === 1 ? "it" : "them"}.`,
       cta: "Review",
-      href: "/admin/invitations",
+      href: "/app/admin/invitations",
     });
   const s = await getSettingsWithKey();
   const usage = await monthUsage();
   if (s.aiKeySource === "none")
-    tasks.unshift({ tone: "danger", title: "AI grading isn't set up", detail: "Add an API key and choose a model so files can be graded.", cta: "Settings", href: "/admin/settings" });
+    tasks.unshift({ tone: "danger", title: "AI grading isn't set up", detail: "Add an API key and choose a model so files can be graded.", cta: "Settings", href: "/app/admin/settings" });
   else if (s.capOn && s.cap > 0 && usage.cost >= s.cap)
-    tasks.unshift({ tone: "danger", title: "Grading is paused at the spending cap", detail: `This month's estimated spend reached the $${s.cap} cap.`, cta: "Limits", href: "/admin/settings" });
+    tasks.unshift({ tone: "danger", title: "Grading is paused at the spending cap", detail: `This month's estimated spend reached the $${s.cap} cap.`, cta: "Limits", href: "/app/admin/settings" });
 
   // Files graded per week, last 9 weeks (Monday start, UTC).
   const d = new Date();

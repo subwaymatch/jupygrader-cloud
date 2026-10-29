@@ -42,7 +42,7 @@ const TABS: { id: Tab; label: string; icon: IconName; test: (s: SubmissionListIt
 const KIND_LABEL: Record<FileKind, string> = { notebook: "Notebooks", code: "Code", doc: "Documents", data: "Data", image: "Images", other: "Other" };
 const STATUS_ORDER = { grading: 0, queued: 1, failed: 2, graded: 3, skipped: 4, cancelled: 5 } as const;
 
-const fileHref = (id: string) => `/submissions/${id}`;
+const fileHref = (id: string) => `/app/submissions/${id}`;
 // Feedback opens in a new tab (app/submissions/[id]).
 const openFile = (id: string) => window.open(fileHref(id), "_blank");
 

@@ -142,7 +142,7 @@ export function Members({
       <Pager page={pg.page} pages={pg.pages} total={members.length} from={pg.from} to={pg.to} onPage={setPage} />
       {showInviteTile && (
         <div className="tile-add" style={{ marginTop: 16 }}>
-          <Link href={`/courses/${courseId}/invite`} className="btn btn--pill">
+          <Link href={`/app/courses/${courseId}/invite`} className="btn btn--pill">
             <Icon name="userPlus" size={15} />
             Invite people
           </Link>

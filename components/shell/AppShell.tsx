@@ -13,11 +13,11 @@ import { initials } from "@/lib/shared/format";
 import type { CourseSummary, Me } from "@/lib/shared/types";
 
 const ADMIN_NAV: { href: string; label: string; icon: IconName }[] = [
-  { href: "/admin", label: "Overview", icon: "dashboard" },
-  { href: "/admin/users", label: "Users & roles", icon: "users" },
-  { href: "/admin/invitations", label: "Invitations", icon: "mail" },
-  { href: "/admin/activity", label: "Activity", icon: "history" },
-  { href: "/admin/settings", label: "Settings", icon: "settings" },
+  { href: "/app/admin", label: "Overview", icon: "dashboard" },
+  { href: "/app/admin/users", label: "Users & roles", icon: "users" },
+  { href: "/app/admin/invitations", label: "Invitations", icon: "mail" },
+  { href: "/app/admin/activity", label: "Activity", icon: "history" },
+  { href: "/app/admin/settings", label: "Settings", icon: "settings" },
 ];
 
 function courseAbbr(name: string): string {
@@ -47,7 +47,7 @@ type NavProps = {
 };
 
 function useCurrentCourse(courses: CourseSummary[], pathname: string): CourseSummary | null {
-  const fromPath = pathname.match(/^\/courses\/([^/]+)/)?.[1];
+  const fromPath = pathname.match(/^\/app\/courses\/([^/]+)/)?.[1];
   const [last, setLast] = useState<string | null>(null);
   useEffect(() => {
     try {
@@ -82,12 +82,12 @@ function CourseSwitcher({ courses, current, onNavigate }: { courses: CourseSumma
       }
       items={[
         { type: "heading", label: "Courses" },
-        ...active.map((c) => ({ label: c.name, onClick: () => go(`/courses/${c.id}`), checked: c.id === current.id })),
+        ...active.map((c) => ({ label: c.name, onClick: () => go(`/app/courses/${c.id}`), checked: c.id === current.id })),
         ...(archived.length ? [{ type: "heading" as const, label: "Archived" }] : []),
-        ...archived.map((c) => ({ label: c.name, onClick: () => go(`/courses/${c.id}`), checked: c.id === current.id })),
+        ...archived.map((c) => ({ label: c.name, onClick: () => go(`/app/courses/${c.id}`), checked: c.id === current.id })),
         { type: "separator" },
-        { label: "All courses", icon: "layers", onClick: () => go("/courses") },
-        { label: "Add course", icon: "plus", onClick: () => go("/courses/new") },
+        { label: "All courses", icon: "layers", onClick: () => go("/app/courses") },
+        { label: "Add course", icon: "plus", onClick: () => go("/app/courses/new") },
       ]}
     />
   );
@@ -126,22 +126,22 @@ function ExpandedNav({ me, courses, adminBadge, pathname, current, onNavigate }:
         <>
           <span className="sidebar__section">Course</span>
           <CourseSwitcher courses={courses} current={current} onNavigate={onNavigate} />
-          {nav(`/courses/${current.id}`, "Course Home", "home", is(`/courses/${current.id}`))}
-          {nav(`/courses/${current.id}/members`, "Members", "users", is(`/courses/${current.id}/members`))}
-          {canManage && nav(`/courses/${current.id}/settings`, "Course settings", "settings", is(`/courses/${current.id}/settings`))}
-          <Link href={`/courses/${current.id}`} className="sidebar__section" onClick={onNavigate}>
+          {nav(`/app/courses/${current.id}`, "Course Home", "home", is(`/app/courses/${current.id}`))}
+          {nav(`/app/courses/${current.id}/members`, "Members", "users", is(`/app/courses/${current.id}/members`))}
+          {canManage && nav(`/app/courses/${current.id}/settings`, "Course settings", "settings", is(`/app/courses/${current.id}/settings`))}
+          <Link href={`/app/courses/${current.id}`} className="sidebar__section" onClick={onNavigate}>
             Assignments
           </Link>
           {current.assignments.map((a) =>
-            nav(`/courses/${current.id}/assignments/${a.id}`, a.title, null, is(`/courses/${current.id}/assignments/${a.id}`, false), true),
+            nav(`/app/courses/${current.id}/assignments/${a.id}`, a.title, null, is(`/app/courses/${current.id}/assignments/${a.id}`, false), true),
           )}
           {!current.assignments.length && <span className="nav-empty">No assignments yet</span>}
         </>
       ) : (
         <>
           <span className="sidebar__section">Courses</span>
-          {nav("/courses", "All courses", "layers", is("/courses"))}
-          {nav("/courses/new", "New course", "plus", is("/courses/new"))}
+          {nav("/app/courses", "All courses", "layers", is("/app/courses"))}
+          {nav("/app/courses/new", "New course", "plus", is("/app/courses/new"))}
         </>
       )}
       {me.isAdmin && (
@@ -156,7 +156,7 @@ function ExpandedNav({ me, courses, adminBadge, pathname, current, onNavigate }:
               <Link key={n.href} href={n.href} className="nav-item" aria-current={is(n.href) ? "page" : undefined} onClick={onNavigate}>
                 <Icon name={n.icon} size={16} />
                 <span className="nav-item__label">{n.label}</span>
-                {n.href === "/admin" && adminBadge > 0 && <span className="badge">{adminBadge}</span>}
+                {n.href === "/app/admin" && adminBadge > 0 && <span className="badge">{adminBadge}</span>}
               </Link>
             ))}
         </>
@@ -175,8 +175,8 @@ function AccountMenu({ me, trigger }: { me: Me; trigger: React.ReactElement<Reco
       trigger={trigger}
       items={[
         { type: "heading", label: me.email },
-        { label: "Account settings", icon: "user", onClick: () => router.push("/account") },
-        { label: "Help", icon: "help", onClick: () => router.push("/help") },
+        { label: "Account settings", icon: "user", onClick: () => router.push("/app/account") },
+        { label: "Help", icon: "help", onClick: () => router.push("/app/help") },
         { type: "separator" },
         { label: "Sign out", icon: "logOut", onClick: signOut },
       ]}
@@ -187,7 +187,7 @@ function AccountMenu({ me, trigger }: { me: Me; trigger: React.ReactElement<Reco
 function SidebarFoot({ me, pathname, onNavigate }: { me: Me; pathname: string; onNavigate?: () => void }) {
   return (
     <div className="sidebar__foot">
-      <Link href="/account" className="me-btn" aria-current={pathname === "/account" ? "page" : undefined} onClick={onNavigate} title="Account settings">
+      <Link href="/app/account" className="me-btn" aria-current={pathname === "/app/account" ? "page" : undefined} onClick={onNavigate} title="Account settings">
         <span className="avatar">{initials(me.name)}</span>
         <span className="truncate">{me.name}</span>
       </Link>
@@ -233,10 +233,10 @@ export function AppShell({
   };
 
   const title = useMemo(() => {
-    if (pathname.startsWith("/admin")) return ADMIN_NAV.find((n) => n.href === pathname)?.label ?? "Admin";
-    if (pathname.startsWith("/account")) return "Account";
-    if (pathname.startsWith("/help")) return "Help";
-    if (pathname.startsWith("/courses/") && current && pathname.includes(current.id)) {
+    if (pathname.startsWith("/app/admin")) return ADMIN_NAV.find((n) => n.href === pathname)?.label ?? "Admin";
+    if (pathname.startsWith("/app/account")) return "Account";
+    if (pathname.startsWith("/app/help")) return "Help";
+    if (pathname.startsWith("/app/courses/") && current && pathname.includes(current.id)) {
       const asgId = pathname.match(/assignments\/([^/]+)/)?.[1];
       const asg = current.assignments.find((a) => a.id === asgId);
       return asg?.title ?? current.name;
@@ -251,7 +251,7 @@ export function AppShell({
       {!rail ? (
         <aside className="sidebar">
           <div className="sidebar__top">
-            <Link href="/courses" className="sidebar__brand" aria-label="Jupygrader home">
+            <Link href="/app/courses" className="sidebar__brand" aria-label="Jupygrader home">
               <Logo size={24} />
             </Link>
             <IconButton icon="panelLeft" label="Collapse sidebar" onClick={toggleRail} />
@@ -262,7 +262,7 @@ export function AppShell({
       ) : (
         <aside className="sidebar sidebar--rail">
           <div className="sidebar__top">
-            <Link href="/courses" aria-label="Jupygrader home">
+            <Link href="/app/courses" aria-label="Jupygrader home">
               <LogoMark size={26} />
             </Link>
             <IconButton icon="panelLeftOpen" label="Expand sidebar" onClick={toggleRail} />
@@ -273,7 +273,7 @@ export function AppShell({
               .map((c) => (
                 <Link
                   key={c.id}
-                  href={`/courses/${c.id}`}
+                  href={`/app/courses/${c.id}`}
                   className="rail-btn rail-btn--text"
                   title={c.name}
                   aria-label={c.name}
@@ -283,14 +283,14 @@ export function AppShell({
                   {courseAbbr(c.name)}
                 </Link>
               ))}
-            <Link href="/courses/new" className="rail-btn" title="Add course" aria-label="Add course">
+            <Link href="/app/courses/new" className="rail-btn" title="Add course" aria-label="Add course">
               <Icon name="plus" size={17} />
             </Link>
             {current && current.assignments.length > 0 && <span className="rail-sep" />}
             {current?.assignments.map((a) => (
               <Link
                 key={a.id}
-                href={`/courses/${current.id}/assignments/${a.id}`}
+                href={`/app/courses/${current.id}/assignments/${a.id}`}
                 className="rail-btn"
                 title={a.title}
                 aria-label={a.title}
@@ -308,7 +308,7 @@ export function AppShell({
               ))}
           </nav>
           <div className="sidebar__foot">
-            <Link href="/help" className="rail-btn" title="Help" aria-label="Help">
+            <Link href="/app/help" className="rail-btn" title="Help" aria-label="Help">
               <Icon name="help" size={18} />
             </Link>
             <AccountMenu

@@ -20,7 +20,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
           <p className="muted" style={{ lineHeight: 1.6 }}>
             It may have expired, been revoked, or already been used. Ask the person who invited you to send a new one.
           </p>
-          <Link href={me ? "/courses" : "/login"} className="btn btn--secondary">
+          <Link href={me ? "/app/courses" : "/login"} className="btn btn--secondary">
             {me ? "Go to your courses" : "Go to sign in"}
           </Link>
         </div>

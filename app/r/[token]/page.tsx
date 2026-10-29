@@ -23,7 +23,7 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
   let back: string | null = null;
   if (sp.preview && shared) {
     const me = await currentUser();
-    if (me && (await getCourseAccess(me, shared.course.id))) back = `/submissions/${shared.sub.id}`;
+    if (me && (await getCourseAccess(me, shared.course.id))) back = `/app/submissions/${shared.sub.id}`;
   }
 
   if (!shared) {

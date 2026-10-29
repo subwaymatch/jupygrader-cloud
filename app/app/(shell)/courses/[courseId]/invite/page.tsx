@@ -14,13 +14,13 @@ export default async function CourseInvitePage({ params }: { params: Promise<{ c
   const me = await pageUser();
   const access = await getCourseAccess(me, courseId);
   if (!access) notFound();
-  if (!access.canManage || access.archived) redirect(`/courses/${courseId}`);
+  if (!access.canManage || access.archived) redirect(`/app/courses/${courseId}`);
   const pending = (await courseMembers(courseId, me)).filter((m) => m.kind === "invite");
   return (
     <div className="page page--medium">
       <div className="page-head">
         <div className="page-head__text">
-          <Link href={`/courses/${courseId}`} className="back-link">
+          <Link href={`/app/courses/${courseId}`} className="back-link">
             <Icon name="arrowLeft" size={14} />
             Back to {access.course.name}
           </Link>

@@ -16,7 +16,7 @@ export function LoginForm({ next, initialError, openReg }: { next?: string; init
   const [error, setError] = useState(initialError || "");
   const [busy, setBusy] = useState(false);
   const [magicSent, setMagicSent] = useState(false);
-  const dest = next && next.startsWith("/") && !next.startsWith("//") ? next : "/courses";
+  const dest = next && next.startsWith("/") && !next.startsWith("//") ? next : "/app/courses";
 
   async function submit(e?: React.FormEvent) {
     e?.preventDefault();

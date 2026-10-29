@@ -43,7 +43,7 @@ export function NewCourseForm({ retentionLabel }: { retentionLabel: string }) {
       const n = inv ? inv.added.length + inv.invited.length : 0;
       toast(n ? `Course created. ${n} ${n === 1 ? "person" : "people"} invited.` : "Course created");
       if (inv?.skipped.length) toast(`Skipped ${inv.skipped.map((s) => `${s.email} (${s.reason})`).join(", ")}`, { error: true, timeout: 9000 });
-      router.push(`/courses/${res.id}`);
+      router.push(`/app/courses/${res.id}`);
       router.refresh();
     } catch (err) {
       setError(errorMessage(err));
@@ -54,7 +54,7 @@ export function NewCourseForm({ retentionLabel }: { retentionLabel: string }) {
   return (
     <div className="form">
       <div className="page-head__text">
-        <Link href="/courses" className="back-link">
+        <Link href="/app/courses" className="back-link">
           <Icon name="arrowLeft" size={14} />
           Back to courses
         </Link>
@@ -169,7 +169,7 @@ export function NewCourseForm({ retentionLabel }: { retentionLabel: string }) {
         </div>
       )}
       <div className="row" style={{ justifyContent: "flex-end", borderTop: "1px solid var(--c-border)", paddingTop: 20 }}>
-        <Link href="/courses" className="btn btn--ghost">
+        <Link href="/app/courses" className="btn btn--ghost">
           Cancel
         </Link>
         <Button variant="primary" onClick={create} loading={busy} icon="check">
