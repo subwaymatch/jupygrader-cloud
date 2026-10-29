@@ -27,10 +27,10 @@ export default async function CoursePage({ params }: { params: Promise<{ courseI
         <CourseHeader course={course} role={access.role ?? "Admin"} canEdit={access.canManage} />
         {canEdit && (
           <div className="page-head__actions">
-            <LinkButton href={`/courses/${courseId}/invite`} variant="secondary" icon="userPlus">
+            <LinkButton href={`/app/courses/${courseId}/invite`} variant="secondary" icon="userPlus">
               Invite people
             </LinkButton>
-            <LinkButton href={`/courses/${courseId}/assignments/new`} variant="primary" icon="plus">
+            <LinkButton href={`/app/courses/${courseId}/assignments/new`} variant="primary" icon="plus">
               New assignment
             </LinkButton>
           </div>
@@ -65,7 +65,7 @@ export default async function CoursePage({ params }: { params: Promise<{ courseI
                     <span>Drop the students&apos; files, or a .zip of them. Each file is graded on its own and identified only by its name and SHA-256 hash.</span>
                   </div>
                   <div>
-                    <Link href={`/courses/${courseId}/assignments/new`} className="btn btn--primary">
+                    <Link href={`/app/courses/${courseId}/assignments/new`} className="btn btn--primary">
                       <Icon name="plus" size={15} />
                       New assignment
                     </Link>

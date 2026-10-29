@@ -42,11 +42,11 @@ export function AssignmentCards({
         const pct = a.total ? Math.round((a.graded / a.total) * 100) : 0;
         const done = a.total > 0 && a.graded === a.total;
         return (
-          <div key={a.id} className={"asg-card" + (done ? " asg-card--done" : "")} onClick={() => router.push(`/courses/${courseId}/assignments/${a.id}`)}>
+          <div key={a.id} className={"asg-card" + (done ? " asg-card--done" : "")} onClick={() => router.push(`/app/courses/${courseId}/assignments/${a.id}`)}>
             <div className="asg-card__top">
               <div className="grow" style={{ minWidth: 0 }}>
                 <Link
-                  href={`/courses/${courseId}/assignments/${a.id}`}
+                  href={`/app/courses/${courseId}/assignments/${a.id}`}
                   className="asg-card__title"
                   style={{ color: "inherit" }}
                   onClick={(e) => e.stopPropagation()}
@@ -66,7 +66,7 @@ export function AssignmentCards({
                       </button>
                     }
                     items={[
-                      { label: "Open", icon: "arrowRight", onClick: () => router.push(`/courses/${courseId}/assignments/${a.id}`) },
+                      { label: "Open", icon: "arrowRight", onClick: () => router.push(`/app/courses/${courseId}/assignments/${a.id}`) },
                       canGrade && {
                         label: "Duplicate",
                         icon: "copy",
@@ -74,7 +74,7 @@ export function AssignmentCards({
                           try {
                             const r = await api<{ id: string }>(`/api/assignments/${a.id}/duplicate`, { method: "POST" });
                             toast(`Duplicated ${a.title}`);
-                            router.push(`/courses/${courseId}/assignments/${r.id}?tab=rubric`);
+                            router.push(`/app/courses/${courseId}/assignments/${r.id}?tab=rubric`);
                             router.refresh();
                           } catch (err) {
                             toast(errorMessage(err), { error: true });
@@ -142,7 +142,7 @@ export function AssignmentCards({
         );
       })}
       {canManage && (
-        <Link href={`/courses/${courseId}/assignments/new`} className="asg-card asg-card--add">
+        <Link href={`/app/courses/${courseId}/assignments/new`} className="asg-card asg-card--add">
           <Icon name="plus" size={16} />
           New assignment
         </Link>

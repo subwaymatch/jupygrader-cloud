@@ -14,6 +14,7 @@ Teachers set up an assignment with instructions, a rubric and an optional answer
 - **Feedback into the notebook.** Downloads insert a summary cell at the top and a `> **Feedback:**` Markdown cell after each commented cell, keeping every original cell, output and piece of metadata. Feedback cells are tagged (`jupygrader-feedback`), so grading a notebook that already has feedback replaces it instead of stacking it. Code files get feedback as comments in the file's own comment syntax; Markdown and text files get it after each paragraph. HTML, plain-text and JSON exports are available too, for one file or a `.zip` of many, plus a grades CSV.
 - **Student links.** A private page per file with the score, rubric, and the work with its feedback (the same nbconvert HTML as the feedback page, for notebooks). Links can be turned off or replaced. Students don't need accounts.
 - **Admin.** Overview of what needs attention, users and roles, invitations, an activity log, and site settings (AI provider and endpoint, encrypted API key, model, plots and interactive outputs sent to the AI, token rates, spending cap, concurrency, data retention).
+- **Public home page.** `/` introduces Jupygrader to instructors, graders and students and links to sign-in and account requests. The signed-in app lives under `/app`; old `/courses`, `/admin`, `/account`, `/help` and `/submissions` links redirect there. Student links (`/r/...`) and invitations (`/invite/...`) keep their addresses.
 - **Works on phones.** The sidebar becomes a slide-in menu, tables become cards, and the feedback page switches between Feedback and File tabs.
 
 ## Stack
@@ -53,7 +54,7 @@ npm run db:migrate:local                # creates the local D1 database
 npm run dev                             # http://localhost:5173
 ```
 
-Open the app and create the first account: it becomes the administrator. Then open **Admin > Settings**, choose a provider (Anthropic or OpenAI-compatible), check the API address it fills in (`https://api.anthropic.com` or, for example, `https://api.openai.com/v1`), enter an API key and a model, and click **Test saved settings**.
+Open the site: the public home page links to sign-in. On a new site, choose **Set up Jupygrader** to create the first account, which becomes the administrator. Then open **Admin > Settings**, choose a provider (Anthropic or OpenAI-compatible), check the API address it fills in (`https://api.anthropic.com` or, for example, `https://api.openai.com/v1`), enter an API key and a model, and click **Test saved settings**.
 
 Local D1, R2 and the queue are simulated by Miniflare and stored in `.wrangler/state`. Cron handlers can be triggered with:
 

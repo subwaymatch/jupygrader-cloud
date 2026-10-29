@@ -25,7 +25,7 @@ export default async function MembersPage({ params }: { params: Promise<{ course
           <span className="muted">{access.course.name}</span>
         </div>
         {canEdit && (
-          <LinkButton href={`/courses/${courseId}/invite`} variant="primary" icon="userPlus">
+          <LinkButton href={`/app/courses/${courseId}/invite`} variant="primary" icon="userPlus">
             Invite people
           </LinkButton>
         )}

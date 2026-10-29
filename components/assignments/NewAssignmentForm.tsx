@@ -60,7 +60,7 @@ export function NewAssignmentForm({ courseId, courseName, model, aiDefaults }: {
         },
       });
       toast(`Created ${title.trim()}`);
-      router.push(`/courses/${courseId}/assignments/${res.id}`);
+      router.push(`/app/courses/${courseId}/assignments/${res.id}`);
       router.refresh();
     } catch (err) {
       setError(errorMessage(err));
@@ -71,7 +71,7 @@ export function NewAssignmentForm({ courseId, courseName, model, aiDefaults }: {
   return (
     <div className="form">
       <div className="page-head__text">
-        <Link href={`/courses/${courseId}`} className="back-link">
+        <Link href={`/app/courses/${courseId}`} className="back-link">
           <Icon name="arrowLeft" size={14} />
           Back to {courseName}
         </Link>
@@ -106,7 +106,7 @@ export function NewAssignmentForm({ courseId, courseName, model, aiDefaults }: {
         <Button variant="primary" icon="check" onClick={() => create()} loading={busy}>
           Create assignment
         </Button>
-        <Link href={`/courses/${courseId}`} className="btn btn--ghost">
+        <Link href={`/app/courses/${courseId}`} className="btn btn--ghost">
           Cancel
         </Link>
       </div>

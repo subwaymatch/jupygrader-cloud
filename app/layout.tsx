@@ -6,6 +6,7 @@ import "./styles/ui.css";
 import "./styles/shell.css";
 import "./styles/screens.css";
 import "./styles/notebook.css";
+import "./styles/home.css";
 
 export const metadata: Metadata = {
   title: { default: "Jupygrader", template: "%s · Jupygrader" },

@@ -73,7 +73,7 @@ export function UsersAdmin({ users, courses, meId }: { users: AdminUser[]; cours
           <h1 className="h1">Users &amp; roles</h1>
           <p className="lede">Roles are set per course, so one person can be a Teacher in one course and a Grader in another.</p>
         </div>
-        <LinkButton href="/admin/invitations" variant="primary" icon="userPlus">
+        <LinkButton href="/app/admin/invitations" variant="primary" icon="userPlus">
           Invite people
         </LinkButton>
       </div>

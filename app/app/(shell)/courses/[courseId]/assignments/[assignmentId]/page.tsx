@@ -18,7 +18,7 @@ export default async function AssignmentPage({
   const { courseId, assignmentId } = await params;
   // Feedback used to open in a drawer at ?file=<id>; it has its own page now.
   const { file } = await searchParams;
-  if (file) redirect(`/submissions/${encodeURIComponent(file)}`);
+  if (file) redirect(`/app/submissions/${encodeURIComponent(file)}`);
   const me = await pageUser();
   const access = await getCourseAccess(me, courseId);
   if (!access) notFound();

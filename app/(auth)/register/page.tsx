@@ -8,7 +8,7 @@ import { getSettings } from "@/lib/server/settings";
 export const metadata = { title: "Create an account" };
 
 export default async function RegisterPage() {
-  if (await currentUser()) redirect("/courses");
+  if (await currentUser()) redirect("/app/courses");
   const firstRun = (await countUsers()) === 0;
   const settings = await getSettings();
   return (

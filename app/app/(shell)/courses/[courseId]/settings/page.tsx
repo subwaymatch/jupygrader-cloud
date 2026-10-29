@@ -15,13 +15,13 @@ export default async function CourseSettingsPage({ params }: { params: Promise<{
   const me = await pageUser();
   const access = await getCourseAccess(me, courseId);
   if (!access) notFound();
-  if (!access.canManage) redirect(`/courses/${courseId}`);
+  if (!access.canManage) redirect(`/app/courses/${courseId}`);
   const [s, contents] = await Promise.all([getSettings(), courseContents(courseId)]);
   return (
     <div className="page page--narrow">
       <div className="page-head">
         <div className="page-head__text">
-          <Link href={`/courses/${courseId}`} className="back-link">
+          <Link href={`/app/courses/${courseId}`} className="back-link">
             <Icon name="arrowLeft" size={14} />
             Back to course
           </Link>

@@ -80,7 +80,7 @@ export async function notifyAdminsOfRequest(name: string, email: string) {
       to: a.email,
       subject: `${name} requested an instructor account`,
       text: `${name} (${email}) asked for a Jupygrader instructor account. Approve or decline the request in Admin > Overview.`,
-      action: { label: "Review the request", url: `${appUrl()}/admin` },
+      action: { label: "Review the request", url: `${appUrl()}/app/admin` },
     });
   }
 }
@@ -133,7 +133,7 @@ export async function inviteToCourse(opts: {
         to: email,
         subject: `You were added to ${opts.courseName}`,
         text: `${opts.by.name} added you to ${opts.courseName} on Jupygrader as ${opts.role}.${opts.message ? "\n\n" + opts.message : ""}`,
-        action: { label: "Open Jupygrader", url: `${appUrl()}/courses/${opts.courseId}` },
+        action: { label: "Open Jupygrader", url: `${appUrl()}/app/courses/${opts.courseId}` },
       });
       continue;
     }

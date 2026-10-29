@@ -450,7 +450,7 @@ async function maybeNotifyBatch(batchId: string | null) {
     to: r0.email,
     subject: `Grading finished: ${r0.title}`,
     text: `Hi ${r0.name},\n\n${lines.join(" ")}`,
-    action: { label: "Open the assignment", url: `${appUrl()}/courses/${r0.course_id}/assignments/${r0.assignment_id}` },
+    action: { label: "Open the assignment", url: `${appUrl()}/app/courses/${r0.course_id}/assignments/${r0.assignment_id}` },
   });
 }
 

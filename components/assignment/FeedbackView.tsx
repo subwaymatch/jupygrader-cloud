@@ -73,7 +73,7 @@ export function FeedbackView({
   const pendingCell = useRef<string | null>(null);
   const ahead = useRef(new Map<string, { at: number; detail: Promise<SubmissionDetail> }>());
   const navSeq = useRef(0);
-  const asgHref = `/courses/${courseId}/assignments/${d.assignmentId}`;
+  const asgHref = `/app/courses/${courseId}/assignments/${d.assignmentId}`;
   const loading = id !== d.id;
 
   useEffect(() => {
@@ -130,7 +130,7 @@ export function FeedbackView({
       const detail = await (hit && Date.now() - hit.at < AHEAD_MS ? hit.detail : api<SubmissionDetail>(`/api/submissions/${sid}`));
       if (seq !== navSeq.current) return;
       setD(detail);
-      window.history.replaceState(null, "", `/submissions/${sid}`);
+      window.history.replaceState(null, "", `/app/submissions/${sid}`);
     } catch (err) {
       if (seq !== navSeq.current) return;
       setId(d.id);

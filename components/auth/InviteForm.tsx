@@ -21,7 +21,7 @@ export function InviteForm({ token, inv, signedInAs }: { token: string; inv: Inv
     setBusy(true);
     try {
       const res = await api<{ courseId: string }>(`/api/invite-links/${token}/accept`, { body: { name, password } });
-      window.location.assign(`/courses/${res.courseId}`);
+      window.location.assign(`/app/courses/${res.courseId}`);
     } catch (err) {
       setError(errorMessage(err));
     } finally {
