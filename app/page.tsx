@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { DevicesMini, DuplicatesMini, FormatsMini, RubricMini, StylesMini } from "@/components/home/FeatureMinis";
 import { NotebookMock, ReviewMock, TeamMock } from "@/components/home/FeatureMocks";
-import { Icon, type IconName } from "@/components/ui/Icon";
+import { HomeHeader } from "@/components/home/HomeHeader";
+import { Icon } from "@/components/ui/Icon";
 import { Logo } from "@/components/ui/Logo";
 import { countUsers } from "@/lib/server/accounts";
 import { currentUser } from "@/lib/server/session";
@@ -42,13 +44,13 @@ const SPOTLIGHTS: [React.ReactNode, string, string, string[]][] = [
   ],
 ];
 
-const FEATURES: [IconName, string, string][] = [
-  ["gauge", "Grading styles from Completion to Strict", "Choose how generous partial credit should be, and the tone and length of the feedback."],
-  ["sparkles", "Rubrics drafted for you", "Skip the rubric, paste or upload one, or let the AI itemize the points from your instructions."],
-  ["fileKey", "Answer keys stay private", "Reference solutions guide the grading but are never shown to students."],
-  ["fileText", "Instructions in any format", "Paste the instructions or upload the PDF, Word or Markdown file students received."],
-  ["copy", "Duplicates caught early", "Exact copies are skipped before upload, and near-identical work is flagged for a closer look."],
-  ["globe", "Works on any device", "Review grades on a laptop or a phone: the layout adapts to small screens."],
+// The first two take half the row; the other three share the next row.
+const FEATURES: [React.ReactNode, string, string][] = [
+  [<StylesMini key="st" />, "Grading styles from Completion to Strict", "Choose how generous partial credit should be, and the tone and length of the feedback."],
+  [<RubricMini key="rb" />, "Rubrics drafted for you", "Skip the rubric, paste or upload one, or let the AI itemize the points from your instructions."],
+  [<FormatsMini key="fm" />, "Instructions in any format", "Paste the instructions or upload the PDF, Word or Markdown file students received."],
+  [<DuplicatesMini key="dp" />, "Duplicates caught early", "Exact copies are skipped before upload, and near-identical work is flagged for a closer look."],
+  [<DevicesMini key="dv" />, "Works on any device", "Review grades on a laptop or a phone: the layout adapts to small screens."],
 ];
 
 export default async function Home() {
@@ -78,10 +80,10 @@ export default async function Home() {
 
   return (
     <div className="home">
-      <header className="home-header">
+      <HomeHeader>
         <div className="home-wrap home-header__inner">
           <Link href="/" className="home-header__brand" aria-label="Jupygrader home">
-            <Logo size={30} />
+            <Logo size={28} />
           </Link>
           <nav className="home-nav" aria-label="Sections">
             <a href="#how-it-works">How it works</a>
@@ -108,25 +110,19 @@ export default async function Home() {
             )}
           </div>
         </div>
-      </header>
+      </HomeHeader>
 
       <main>
         <section className="home-hero">
           <div className="home-wrap home-hero__inner">
             <div className="home-hero__copy">
-              <span className="home-label">
-                <Icon name="notebook" size={18} />
-                AI-assisted grading for Jupyter notebooks
-              </span>
-              <h1 className="home-h1">
-                <span>Grade the whole stack.</span> <span className="home-accent">Keep the final say.</span>
-              </h1>
+              <h1 className="home-h1">AI-assisted grading for Jupyter notebooks</h1>
               <p className="home-lead">
-                Jupygrader grades Jupyter notebooks and other student work against your rubric. You review each result next to the notebook, change any score, and send every
-                student a private link to their feedback.
+                Upload your students&apos; notebooks and a rubric. Jupygrader reads each notebook&apos;s code, markdown and outputs, scores it against the rubric, and adds
+                feedback cells after the cells they comment on. You check the results and can change any score before sharing feedback.
               </p>
               <div className="home-ctas">{ctas}</div>
-              {!me && <p className="home-note">Students don&apos;t need an account. Their feedback arrives as a private link from you.</p>}
+              {!me && <p className="home-note">Students don&apos;t need an account. They get feedback through a private link.</p>}
             </div>
             <img className="home-hero__art" src="/home/hero.webp" width={1200} height={844} alt="The Jupygrader bird typing on a laptop, surrounded by checked papers" />
           </div>
@@ -186,11 +182,9 @@ export default async function Home() {
               ))}
             </div>
             <div className="home-features">
-              {FEATURES.map(([icon, title, body]) => (
-                <div key={title} className="home-feature">
-                  <span className="home-feature__icon">
-                    <Icon name={icon} size={22} />
-                  </span>
+              {FEATURES.map(([mini, title, body], i) => (
+                <div key={title} className={"home-feature home-reveal" + (i < 2 ? " home-feature--wide" : "")}>
+                  {mini}
                   <h3 className="home-h3">{title}</h3>
                   <p>{body}</p>
                 </div>
