@@ -1,5 +1,5 @@
 import { escapeHtml } from "@/lib/shared/markdown";
-import { getEnv } from "./env";
+import { appUrl, getEnv } from "./env";
 
 export type Email = { to: string; subject: string; text: string; action?: { label: string; url: string } };
 
@@ -15,7 +15,12 @@ function html(e: Email): string {
   const btn = e.action
     ? `<p style="margin:20px 0"><a href="${escapeHtml(e.action.url)}" style="background:#148CFF;color:#fff;text-decoration:none;padding:10px 16px;border-radius:6px;font-weight:500;display:inline-block">${escapeHtml(e.action.label)}</a></p><p style="margin:0 0 14px;color:#64748B;font-size:13px">Or paste this link into your browser: ${escapeHtml(e.action.url)}</p>`
     : "";
-  return `<div style="font:15px/1.6 system-ui,-apple-system,'Segoe UI',sans-serif;color:#111827;max-width:520px;margin:0 auto;padding:24px"><p style="font-weight:600;font-size:17px;margin:0 0 20px">Jupygrader</p>${paras}${btn}</div>`;
+  // Mail clients can only load the logo from a public https address.
+  const base = appUrl();
+  const logo = base.startsWith("https://")
+    ? `<img src="${escapeHtml(base)}/icon-192.png" width="28" height="28" alt="" style="vertical-align:-8px;margin-right:8px">`
+    : "";
+  return `<div style="font:15px/1.6 system-ui,-apple-system,'Segoe UI',sans-serif;color:#111827;max-width:520px;margin:0 auto;padding:24px"><p style="font-weight:600;font-size:17px;margin:0 0 20px">${logo}Jupygrader</p>${paras}${btn}</div>`;
 }
 
 /**

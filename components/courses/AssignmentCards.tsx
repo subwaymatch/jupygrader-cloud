@@ -40,10 +40,11 @@ export function AssignmentCards({
     <div className="asg-list">
       {items.map((a, i) => {
         const pct = a.total ? Math.round((a.graded / a.total) * 100) : 0;
+        const done = a.total > 0 && a.graded === a.total;
         return (
-          <div key={a.id} className="asg-card" style={{ cursor: "pointer" }} onClick={() => router.push(`/courses/${courseId}/assignments/${a.id}`)}>
+          <div key={a.id} className={"asg-card" + (done ? " asg-card--done" : "")} onClick={() => router.push(`/courses/${courseId}/assignments/${a.id}`)}>
             <div className="asg-card__top">
-              <div className="grow">
+              <div className="grow" style={{ minWidth: 0 }}>
                 <Link
                   href={`/courses/${courseId}/assignments/${a.id}`}
                   className="asg-card__title"
@@ -53,7 +54,7 @@ export function AssignmentCards({
                   {a.title}
                 </Link>
                 <div className="asg-card__meta">
-                  {a.rubricItems ? `${a.rubricItems} rubric item${a.rubricItems === 1 ? "" : "s"}` : "No rubric"}, {a.points} points
+                  {a.rubricItems ? `${a.rubricItems} rubric item${a.rubricItems === 1 ? "" : "s"}` : "No rubric"} · {a.points} points
                 </div>
               </div>
               {(canGrade || canManage) && (
@@ -109,34 +110,43 @@ export function AssignmentCards({
                 </span>
               )}
             </div>
-            <div className="asg-card__bottom">
-              <span>
-                {a.total ? `${a.graded} of ${a.total} graded` : "No submissions yet"}
-                {a.inProgress > 0 && <span className="muted">, {a.inProgress} in progress</span>}
-              </span>
-              <div className="asg-card__flags">
-                {a.needsReview > 0 && (
-                  <span className="flag flag--warn">
-                    <Icon name="flag" size={13} />
-                    {a.needsReview} need{a.needsReview === 1 ? "s" : ""} review
+            <div className="asg-card__status">
+              <div className="asg-card__bottom">
+                <span className="asg-card__count">
+                  {done && <Icon name="checkCircle" size={14} />}
+                  <span>
+                    {!a.total ? <span className="muted">No submissions yet</span> : done ? `All ${a.total} graded` : `${a.graded} of ${a.total} graded`}
+                    {a.inProgress > 0 && <span className="muted">, {a.inProgress} in progress</span>}
                   </span>
-                )}
-                {a.failed > 0 && (
-                  <span className="flag flag--danger">
-                    <Icon name="alertCircle" size={13} />
-                    {a.failed} failed
-                  </span>
-                )}
+                </span>
+                <div className="asg-card__flags">
+                  {a.needsReview > 0 && (
+                    <span className="flag flag--warn">
+                      <Icon name="flag" size={13} />
+                      {a.needsReview} need{a.needsReview === 1 ? "s" : ""} review
+                    </span>
+                  )}
+                  {a.failed > 0 && (
+                    <span className="flag flag--danger">
+                      <Icon name="alertCircle" size={13} />
+                      {a.failed} failed
+                    </span>
+                  )}
+                </div>
               </div>
-            </div>
-            {a.total > 0 && (
               <div className="progress" aria-hidden>
                 <span style={{ width: pct + "%" }} />
               </div>
-            )}
+            </div>
           </div>
         );
       })}
+      {canManage && (
+        <Link href={`/courses/${courseId}/assignments/new`} className="asg-card asg-card--add">
+          <Icon name="plus" size={16} />
+          New assignment
+        </Link>
+      )}
     </div>
   );
 }

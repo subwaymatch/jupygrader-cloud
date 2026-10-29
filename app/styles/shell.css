@@ -9,21 +9,17 @@
   color: var(--c-text);
 }
 .logo {
-  overflow: visible;
+  display: block;
+  flex: none;
 }
-.logo--animated .logo__s1 {
-  animation: jg-drop 0.75s linear both;
+/* The bird hops in on the sign-in pages. */
+.logo--animated {
+  animation: jg-hop 0.75s linear both;
 }
-.logo--animated .logo__s2 {
-  animation: jg-drop 0.75s 0.11s linear both;
-}
-.logo--animated .logo__s3 {
-  animation: jg-drop 0.75s 0.22s linear both;
-}
-@keyframes jg-drop {
+@keyframes jg-hop {
   0% {
     opacity: 0;
-    transform: translateY(-150px);
+    transform: translateY(-20px);
     animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45);
   }
   12% {
@@ -34,7 +30,7 @@
     animation-timing-function: cubic-bezier(0, 0.55, 0.45, 1);
   }
   62% {
-    transform: translateY(-26px);
+    transform: translateY(-4px);
     animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45);
   }
   78% {
@@ -42,7 +38,7 @@
     animation-timing-function: cubic-bezier(0, 0.55, 0.45, 1);
   }
   88% {
-    transform: translateY(-7px);
+    transform: translateY(-1px);
     animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45);
   }
   100% {

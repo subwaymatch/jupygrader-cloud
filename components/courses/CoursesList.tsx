@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Icon } from "@/components/ui/Icon";
+import { Mascot } from "@/components/ui/Mascot";
 import { courseDatesLabel } from "@/lib/shared/format";
 import type { CourseSummary } from "@/lib/shared/types";
 
@@ -38,17 +39,20 @@ export function CoursesList({ courses, isAdmin }: { courses: CourseSummary[]; is
           ))}
         </div>
       ) : (
-        <div className="setup-steps">
-          <p style={{ lineHeight: 1.6 }}>
-            {isAdmin
-              ? "There are no active courses yet. Add a course to start grading."
-              : "You're not in any courses yet. Add a course to start grading, or ask a teacher to invite you to theirs."}
-          </p>
-          <div>
-            <Link href="/courses/new" className="btn btn--primary">
-              <Icon name="plus" size={15} />
-              Add course
-            </Link>
+        <div className="setup-steps setup-steps--mascot">
+          <Mascot pose="graduate" size={112} />
+          <div className="setup-steps__body">
+            <p style={{ lineHeight: 1.6 }}>
+              {isAdmin
+                ? "There are no active courses yet. Add a course to start grading."
+                : "You're not in any courses yet. Add a course to start grading, or ask a teacher to invite you to theirs."}
+            </p>
+            <div>
+              <Link href="/courses/new" className="btn btn--primary">
+                <Icon name="plus" size={15} />
+                Add course
+              </Link>
+            </div>
           </div>
         </div>
       )}

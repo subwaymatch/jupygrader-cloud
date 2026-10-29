@@ -5,6 +5,7 @@ import { CourseHeader } from "@/components/courses/CourseHeader";
 import { Members } from "@/components/courses/Members";
 import { LinkButton } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
+import { Mascot } from "@/components/ui/Mascot";
 import { getCourseAccess } from "@/lib/server/access";
 import { courseAssignments, courseMembers, courseView } from "@/lib/server/courses";
 import { pageUser } from "@/lib/server/session";
@@ -43,44 +44,37 @@ export default async function CoursePage({ params }: { params: Promise<{ courseI
           </h2>
         </div>
         {assignments.length > 0 ? (
-          <>
-            <AssignmentCards courseId={courseId} items={assignments} canManage={canEdit} canGrade={access.canGrade && !access.archived} />
-            {canEdit && (
-              <div className="tile-add">
-                <Link href={`/courses/${courseId}/assignments/new`} className="btn btn--pill">
-                  <Icon name="plus" size={15} />
-                  New assignment
-                </Link>
-              </div>
-            )}
-          </>
+          <AssignmentCards courseId={courseId} items={assignments} canManage={canEdit} canGrade={access.canGrade && !access.archived} />
         ) : (
-          <div className="setup-steps">
-            <strong>{canEdit ? "Set up your first assignment" : "No assignments yet"}</strong>
-            {canEdit ? (
-              <>
-                <div className="setup-step">
-                  <span className="step-num">1</span>
-                  <span>Create an assignment and add the instructions students received.</span>
-                </div>
-                <div className="setup-step">
-                  <span className="step-num">2</span>
-                  <span>Add a rubric, and a reference solution if you have one.</span>
-                </div>
-                <div className="setup-step">
-                  <span className="step-num">3</span>
-                  <span>Drop the students&apos; files, or a .zip of them. Each file is graded on its own and identified only by its name and SHA-256 hash.</span>
-                </div>
-                <div>
-                  <Link href={`/courses/${courseId}/assignments/new`} className="btn btn--primary">
-                    <Icon name="plus" size={15} />
-                    New assignment
-                  </Link>
-                </div>
-              </>
-            ) : (
-              <span className="muted">A Teacher in this course hasn&apos;t added any assignments yet.</span>
-            )}
+          <div className="setup-steps setup-steps--mascot">
+            <Mascot pose={canEdit ? "pointing" : "sleeping"} size={112} />
+            <div className="setup-steps__body">
+              <strong>{canEdit ? "Set up your first assignment" : "No assignments yet"}</strong>
+              {canEdit ? (
+                <>
+                  <div className="setup-step">
+                    <span className="step-num">1</span>
+                    <span>Create an assignment and add the instructions students received.</span>
+                  </div>
+                  <div className="setup-step">
+                    <span className="step-num">2</span>
+                    <span>Add a rubric, and a reference solution if you have one.</span>
+                  </div>
+                  <div className="setup-step">
+                    <span className="step-num">3</span>
+                    <span>Drop the students&apos; files, or a .zip of them. Each file is graded on its own and identified only by its name and SHA-256 hash.</span>
+                  </div>
+                  <div>
+                    <Link href={`/courses/${courseId}/assignments/new`} className="btn btn--primary">
+                      <Icon name="plus" size={15} />
+                      New assignment
+                    </Link>
+                  </div>
+                </>
+              ) : (
+                <span className="muted">A Teacher in this course hasn&apos;t added any assignments yet.</span>
+              )}
+            </div>
           </div>
         )}
       </section>
