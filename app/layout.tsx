@@ -10,7 +10,13 @@ import "./styles/notebook.css";
 export const metadata: Metadata = {
   title: { default: "Jupygrader", template: "%s · Jupygrader" },
   description: "AI-assisted grading for Jupyter notebooks and other student work.",
-  icons: { icon: "/logo.svg" },
+  icons: {
+    icon: [
+      { url: "/logo.svg", type: "image/svg+xml" },
+      { url: "/icon-32.png", sizes: "32x32", type: "image/png" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export const viewport: Viewport = {

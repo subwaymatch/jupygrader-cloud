@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Controls";
 import { useConfirm } from "@/components/ui/Dialog";
 import { Icon, type IconName } from "@/components/ui/Icon";
+import { EmptyState, Mascot } from "@/components/ui/Mascot";
 import { ActionMenu, type MenuEntry } from "@/components/ui/Menu";
 import { Pager, pageSlice } from "@/components/ui/Pager";
 import { toast } from "@/components/ui/Toast";
@@ -100,6 +101,13 @@ export function SubmissionsTab({
   }, [items]);
 
   const activeFilterCount = (lo || hi ? 1 : 0) + review.size + kinds.size + (hash ? 1 : 0);
+  const clearFilters = () => {
+    setLo("");
+    setHi("");
+    setReview(new Set());
+    setKinds(new Set());
+    setHash("");
+  };
 
   const rows = useMemo(() => {
     const tf = TABS.find((t) => t.id === tab)!.test;
@@ -342,7 +350,7 @@ export function SubmissionsTab({
                 setDragging(true);
               }}
             >
-              <Icon name="uploadCloud" size={28} style={{ color: "var(--c-muted)" }} />
+              <Mascot pose="carrying-papers" size={104} />
               <span className="dropzone__title">{dragging ? "Release to upload" : "Drop files here"}</span>
               <span className="muted">Notebooks, code, documents or images. Archives (.zip) are unpacked.</span>
               <Button variant="secondary" icon="folderOpen" onClick={() => fileRef.current?.click()} loading={!!stageProgress} style={{ marginTop: 6 }}>
@@ -364,6 +372,12 @@ export function SubmissionsTab({
             </div>
           )}
         </>
+      )}
+
+      {!canGrade && items.length === 0 && !pending.length && (
+        <EmptyState pose="sleeping" title="No files yet">
+          Nobody has uploaded files to this assignment.
+        </EmptyState>
       )}
 
       {(items.length > 0 || pending.length > 0) && (
@@ -562,16 +576,7 @@ export function SubmissionsTab({
                   {rows.length} of {items.length} shown
                 </span>
                 {activeFilterCount > 0 && (
-                  <Button
-                    variant="link"
-                    onClick={() => {
-                      setLo("");
-                      setHi("");
-                      setReview(new Set());
-                      setKinds(new Set());
-                      setHash("");
-                    }}
-                  >
+                  <Button variant="link" onClick={clearFilters}>
                     Clear all
                   </Button>
                 )}
@@ -730,7 +735,28 @@ export function SubmissionsTab({
                 </div>
               );
             })}
-            {!pg.rows.length && !pending.length && <p className="empty">{items.length ? "No files match these filters." : "No files yet."}</p>}
+            {!pg.rows.length && !pending.length && (
+              <EmptyState
+                pose="magnifier"
+                size={88}
+                title="No files match"
+                actions={
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      clearFilters();
+                      setSearch("");
+                      setTab("all");
+                    }}
+                  >
+                    Show all files
+                  </Button>
+                }
+              >
+                Try another search, status or filter.
+              </EmptyState>
+            )}
           </div>
           <Pager page={pg.page} pages={pg.pages} total={rows.length} from={pg.from} to={pg.to} onPage={setPage} />
           {graded.length > 0 && <Results asg={asg} graded={graded} items={items} open={resultsOpen} setOpen={setResultsOpen} />}

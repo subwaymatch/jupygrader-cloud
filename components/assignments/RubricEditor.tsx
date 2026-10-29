@@ -5,6 +5,7 @@ import { Button, IconButton } from "@/components/ui/Button";
 import { RadioCards } from "@/components/ui/Controls";
 import { AffixInput, Textarea } from "@/components/ui/Field";
 import { Icon } from "@/components/ui/Icon";
+import { Mascot } from "@/components/ui/Mascot";
 import { toast } from "@/components/ui/Toast";
 import { api, errorMessage } from "@/lib/client/api";
 import { DOC_ACCEPT } from "@/lib/shared/constants";
@@ -328,6 +329,7 @@ export function RubricEditor({
             ))}
             {!value.rows.length && (
               <div className="empty" style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
+                <Mascot pose="clipboard" size={80} />
                 <span>No items yet. Add the first one below.</span>
                 {taskText.trim() && (
                   <Button variant="link" icon="sparkles" onClick={draft} loading={busy === "draft"}>

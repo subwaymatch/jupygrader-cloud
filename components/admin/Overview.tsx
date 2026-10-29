@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button, LinkButton } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/Mascot";
 import { toast } from "@/components/ui/Toast";
 import { api, errorMessage } from "@/lib/client/api";
 import { fmtAt, fmtDay, fmtLongDay, fmtTokens, fmtUsd, plural } from "@/lib/shared/format";
@@ -91,7 +92,11 @@ export function Overview({ data }: { data: OverviewData }) {
               </LinkButton>
             </div>
           ))}
-          {!attention && <p className="empty">Nothing needs your attention right now.</p>}
+          {!attention && (
+            <EmptyState pose="thumbs-up" size={88}>
+              Nothing needs your attention right now.
+            </EmptyState>
+          )}
         </div>
       </section>
 

@@ -7,6 +7,7 @@ import { Button, IconButton } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/Dialog";
 import { Input } from "@/components/ui/Field";
 import { Icon } from "@/components/ui/Icon";
+import { Mascot } from "@/components/ui/Mascot";
 import { ActionMenu } from "@/components/ui/Menu";
 import { toast } from "@/components/ui/Toast";
 import { api, copyText, downloadUrl, errorMessage } from "@/lib/client/api";
@@ -27,7 +28,7 @@ function notifyDone(title: string, items: SubmissionListItem[]) {
     if (document.visibilityState === "visible") return;
     const graded = items.filter((s) => s.status === "graded").length;
     const failed = items.filter((s) => s.status === "failed").length;
-    new Notification(`Grading finished: ${title}`, { body: `${graded} graded${failed ? `, ${failed} failed` : ""}.`, icon: "/logo.svg" });
+    new Notification(`Grading finished: ${title}`, { body: `${graded} graded${failed ? `, ${failed} failed` : ""}.`, icon: "/icon-192.png" });
   } catch {
     /* notifications unavailable */
   }
@@ -317,7 +318,14 @@ export function AssignmentView({
       {tab === "rubric" && <RubricTab asg={asg} canEdit={canEdit} onSaved={(a) => (setAsg(a), list.refresh(), router.refresh())} />}
       {tab === "settings" && <SettingsTab asg={asg} canEdit={canEdit} model={model} aiDefaults={aiDefaults} onSaved={(a) => (setAsg(a), list.refresh())} />}
 
-      {dragging && items.length > 0 && tab === "submissions" && <div className="drop-overlay">Release to upload to {asg.title}</div>}
+      {dragging && items.length > 0 && tab === "submissions" && (
+        <div className="drop-overlay">
+          <div className="drop-overlay__inner">
+            <Mascot pose="carrying-papers" size={128} bob />
+            Release to upload to {asg.title}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

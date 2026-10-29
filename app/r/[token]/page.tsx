@@ -3,6 +3,7 @@ import { StudentNotebook } from "@/components/notebook/NotebookFrame";
 import { NotebookView } from "@/components/notebook/NotebookView";
 import { Icon } from "@/components/ui/Icon";
 import { Logo } from "@/components/ui/Logo";
+import { Mascot } from "@/components/ui/Mascot";
 import { getCourseAccess } from "@/lib/server/access";
 import { parseJson } from "@/lib/server/db";
 import { currentUser } from "@/lib/server/session";
@@ -31,7 +32,7 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
         <div className="student-wrap">
           <Logo size={24} />
           <div className="student-card" style={{ alignItems: "flex-start" }}>
-            <Icon name="link" size={22} style={{ color: "var(--c-muted)" }} />
+            <Mascot pose="sad" size={96} />
             <h1 className="h1">This link is no longer active</h1>
             <p className="muted" style={{ lineHeight: 1.6 }}>
               The person who shared it turned it off or replaced it with a new link, or the feedback was deleted. Ask them for the current one.

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AuthFrame } from "@/components/auth/AuthFrame";
 import { InviteForm } from "@/components/auth/InviteForm";
+import { Mascot } from "@/components/ui/Mascot";
 import { invitationByToken } from "@/lib/server/accounts";
 import { currentUser } from "@/lib/server/session";
 
@@ -14,6 +15,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
     return (
       <AuthFrame>
         <div className="auth-card">
+          <Mascot pose="sad" size={96} />
           <h1 className="auth-card__title">This invitation isn&apos;t valid</h1>
           <p className="muted" style={{ lineHeight: 1.6 }}>
             It may have expired, been revoked, or already been used. Ask the person who invited you to send a new one.

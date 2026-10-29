@@ -1150,6 +1150,54 @@ a.list-row:hover,
   font-size: 14px;
 }
 
+/* ---------- Mascot ---------- */
+.mascot {
+  display: block;
+  flex: none;
+  user-select: none;
+}
+.mascot--bob {
+  animation: jg-bob 1.6s ease-in-out infinite;
+}
+@keyframes jg-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--c-muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+.empty-state .mascot {
+  margin-bottom: 4px;
+}
+.empty-state__title {
+  color: var(--c-text);
+  font-size: 15px;
+  font-weight: 600;
+}
+.empty-state__body {
+  max-width: 420px;
+}
+.empty-state__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
 .skeleton {
   border-radius: var(--radius-sm);
   background: linear-gradient(90deg, var(--c-hover) 25%, var(--c-fill) 37%, var(--c-hover) 63%);

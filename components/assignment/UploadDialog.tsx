@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Controls";
 import { Modal } from "@/components/ui/Dialog";
 import { Icon } from "@/components/ui/Icon";
+import { Mascot } from "@/components/ui/Mascot";
 import { fmtSize, plural } from "@/lib/shared/format";
 import type { StageProgress, Staged } from "./staging";
 
@@ -17,6 +18,7 @@ function ReadingProgress({ progress: p }: { progress: StageProgress }) {
   const pct = p.step === "read" && p.total ? Math.round((p.done / p.total) * 100) : null;
   return (
     <div className="upload-progress">
+      <Mascot pose="flying" size={96} bob />
       <div className="upload-progress__label">
         <Icon name="loader" size={15} className="spin" />
         <span title={label}>{label}</span>
