@@ -206,29 +206,31 @@ export function DevicesMini() {
   return (
     <Stage loop={8} cycle={false}>
       <div className="fvm">
-        <div className="fvm__screen">
-          <div className="fvm__bar">
-            <img src="/logo.svg" width={14} height={14} alt="" />
-            <span className="fvm__title">HW 2</span>
-            <Icon name="menu" size={14} className="fvm__menu" />
-          </div>
-          <div className="fvm__body">
-            <div className="fvm__side">
-              <i />
-              <i />
-              <i />
-              <i />
+        <div className="fvm__device">
+          <div className="fvm__screen">
+            <div className="fvm__bar">
+              <img src="/logo.svg" width={14} height={14} alt="" />
+              <span className="fvm__title">HW 2</span>
+              <Icon name="menu" size={14} className="fvm__menu" />
             </div>
-            <div className="fvm__list">
-              {SCREEN_ROWS.map(([name, score]) => (
-                <div key={name} className="fvm__row">
-                  <span className="fvm__name">
-                    <Icon name="notebook" size={13} />
-                    <span>{name}</span>
-                  </span>
-                  <span className="fvm__score">{score}</span>
-                </div>
-              ))}
+            <div className="fvm__body">
+              <div className="fvm__side">
+                <i />
+                <i />
+                <i />
+                <i />
+              </div>
+              <div className="fvm__list">
+                {SCREEN_ROWS.map(([name, score]) => (
+                  <div key={name} className="fvm__row">
+                    <span className="fvm__name">
+                      <Icon name="notebook" size={13} />
+                      <span>{name}</span>
+                    </span>
+                    <span className="fvm__score">{score}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>

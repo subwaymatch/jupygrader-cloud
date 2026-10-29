@@ -1077,32 +1077,37 @@
   color: #6e44c9;
 }
 
-/* Devices: the screen narrows to phone width, and a container query changes its layout. */
+/* Devices: the device narrows to phone width, and a container query changes the screen's layout. The screen is
+   rounded and clipped inside the frame, so nothing on it crosses the frame's corners. */
 .fvm {
   display: flex;
   justify-content: center;
   height: 200px;
 }
+.fvm__device {
+  width: 100%;
+  height: 100%;
+  padding: 5px;
+  border-radius: 14px;
+  background: #1e293b;
+}
 .fvm__screen {
   container: fvm / inline-size;
   display: flex;
   flex-direction: column;
-  width: 100%;
   height: 100%;
   overflow: hidden;
-  border-radius: 10px;
+  border-radius: 9px;
   background: #f6f9fe;
-  box-shadow: inset 0 0 0 5px #1e293b;
-  padding: 5px;
 }
 .fvm__bar {
   display: flex;
+  flex: none;
   align-items: center;
   gap: 7px;
   height: 30px;
   padding: 0 10px;
   background: #fff;
-  border-radius: 6px 6px 0 0;
 }
 .fvm__title {
   font-size: 13px;
@@ -1119,6 +1124,7 @@
   min-height: 0;
   gap: 8px;
   padding: 8px;
+  overflow: hidden;
 }
 .fvm__side {
   display: flex;
@@ -1168,16 +1174,30 @@
   font-weight: 600;
   white-space: nowrap;
 }
+/* Phone width: no sidebar, and each score goes under its file name. Three rows fit the screen's height. */
 @container fvm (max-width: 170px) {
+  .fvm__bar {
+    height: 28px;
+    padding: 0 9px;
+  }
   .fvm__side {
     display: none;
   }
   .fvm__menu {
     display: block;
   }
+  .fvm__body {
+    padding: 6px;
+  }
+  .fvm__list {
+    gap: 5px;
+  }
   .fvm__row {
     flex-direction: column;
     align-items: stretch;
+    gap: 1px;
+    padding: 5px 8px;
+    line-height: 1.3;
   }
   .fvm__name svg {
     display: none;
@@ -1312,8 +1332,11 @@
   .mk-strike-60 {
     animation: mk-strike-60 var(--mk) linear infinite;
   }
-  .fvm__screen {
+  .fvm__device {
     animation: mk-squeeze var(--mk) ease-in-out infinite;
+  }
+  .fvm__screen {
+    animation: mk-squeeze-screen var(--mk) ease-in-out infinite;
   }
 }
 
@@ -1673,21 +1696,36 @@
     text-decoration-color: currentColor;
   }
 }
+/* The frame and the screen inside it (5px smaller all round) change shape together. */
 @keyframes mk-squeeze {
   0%,
   20% {
     width: 100%;
-    border-radius: 10px;
+    border-radius: 14px;
   }
   38%,
   68% {
-    width: 130px;
-    border-radius: 18px;
+    width: 136px;
+    border-radius: 24px;
   }
   86%,
   100% {
     width: 100%;
-    border-radius: 10px;
+    border-radius: 14px;
+  }
+}
+@keyframes mk-squeeze-screen {
+  0%,
+  20% {
+    border-radius: 9px;
+  }
+  38%,
+  68% {
+    border-radius: 19px;
+  }
+  86%,
+  100% {
+    border-radius: 9px;
   }
 }
 
