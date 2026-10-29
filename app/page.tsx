@@ -1,7 +1,8 @@
 import Link from "next/link";
+import { DevicesMini, DuplicatesMini, FormatsMini, RubricMini, StylesMini } from "@/components/home/FeatureMinis";
 import { NotebookMock, ReviewMock, TeamMock } from "@/components/home/FeatureMocks";
 import { HomeHeader } from "@/components/home/HomeHeader";
-import { Icon, type IconName } from "@/components/ui/Icon";
+import { Icon } from "@/components/ui/Icon";
 import { Logo } from "@/components/ui/Logo";
 import { countUsers } from "@/lib/server/accounts";
 import { currentUser } from "@/lib/server/session";
@@ -43,13 +44,13 @@ const SPOTLIGHTS: [React.ReactNode, string, string, string[]][] = [
   ],
 ];
 
-const FEATURES: [IconName, string, string][] = [
-  ["gauge", "Grading styles from Completion to Strict", "Choose how generous partial credit should be, and the tone and length of the feedback."],
-  ["sparkles", "Rubrics drafted for you", "Skip the rubric, paste or upload one, or let the AI itemize the points from your instructions."],
-  ["fileKey", "Answer keys stay private", "Reference solutions guide the grading but are never shown to students."],
-  ["fileText", "Instructions in any format", "Paste the instructions or upload the PDF, Word or Markdown file students received."],
-  ["copy", "Duplicates caught early", "Exact copies are skipped before upload, and near-identical work is flagged for a closer look."],
-  ["globe", "Works on any device", "Review grades on a laptop or a phone: the layout adapts to small screens."],
+// The first two take half the row; the other three share the next row.
+const FEATURES: [React.ReactNode, string, string][] = [
+  [<StylesMini key="st" />, "Grading styles from Completion to Strict", "Choose how generous partial credit should be, and the tone and length of the feedback."],
+  [<RubricMini key="rb" />, "Rubrics drafted for you", "Skip the rubric, paste or upload one, or let the AI itemize the points from your instructions."],
+  [<FormatsMini key="fm" />, "Instructions in any format", "Paste the instructions or upload the PDF, Word or Markdown file students received."],
+  [<DuplicatesMini key="dp" />, "Duplicates caught early", "Exact copies are skipped before upload, and near-identical work is flagged for a closer look."],
+  [<DevicesMini key="dv" />, "Works on any device", "Review grades on a laptop or a phone: the layout adapts to small screens."],
 ];
 
 export default async function Home() {
@@ -181,11 +182,9 @@ export default async function Home() {
               ))}
             </div>
             <div className="home-features">
-              {FEATURES.map(([icon, title, body]) => (
-                <div key={title} className="home-feature">
-                  <span className="home-feature__icon">
-                    <Icon name={icon} size={22} />
-                  </span>
+              {FEATURES.map(([mini, title, body], i) => (
+                <div key={title} className={"home-feature home-reveal" + (i < 2 ? " home-feature--wide" : "")}>
+                  {mini}
                   <h3 className="home-h3">{title}</h3>
                   <p>{body}</p>
                 </div>
