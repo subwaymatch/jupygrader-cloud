@@ -299,6 +299,14 @@ button.sidebar__section:hover {
   gap: 8px;
   flex-wrap: wrap;
 }
+/* A mascot at the end of the page title, overlapping the space around it. */
+.page-head--mascot {
+  align-items: center;
+  flex-wrap: nowrap;
+}
+.page-head__mascot {
+  margin: -16px 0 -20px;
+}
 .h1 {
   font-size: 26px;
   line-height: 36px;
@@ -511,6 +519,10 @@ button.sidebar__section:hover {
   }
   .page-head__actions {
     width: 100%;
+  }
+  .page-head__mascot {
+    width: 72px;
+    height: 72px;
   }
   .auth-card {
     padding: 22px 18px;

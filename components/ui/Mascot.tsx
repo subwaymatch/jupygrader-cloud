@@ -23,7 +23,14 @@ export type Pose =
   | "gear"
   | "notebook"
   | "mail"
-  | "sitting";
+  | "sitting"
+  | "binders"
+  | "inbox"
+  | "chart"
+  | "stamp"
+  | "archive"
+  | "desk"
+  | "lifebuoy";
 
 /** The mascot in one of its poses. Decorative (hidden from screen readers) unless `alt` is set. */
 export function Mascot({ pose, size = 120, alt = "", bob = false, className }: { pose: Pose; size?: number; alt?: string; bob?: boolean; className?: string }) {

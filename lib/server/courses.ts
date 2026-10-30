@@ -57,31 +57,41 @@ export async function courseMembers(courseId: string, me: Me): Promise<MemberVie
   ];
 }
 
-export type AssignmentCard = {
+export type AssignmentCard = GradingCounts & {
   id: string;
   title: string;
   points: number;
   rubricItems: number;
   rubricMethod: string;
-  total: number;
-  graded: number;
-  inProgress: number;
-  failed: number;
-  needsReview: number;
 };
+
+/** Counts graded files that are flagged (a close match or low confidence) and not yet reviewed. */
+const NEEDS_REVIEW_SQL = `sum(case when status = 'graded' and reviewed = 0 and (near_of is not null or json_extract(result, '$.confidence') = 'low') then 1 else 0 end)`;
+
+type StatusCount = { status: string; n: number; review: number };
+export type GradingCounts = { total: number; graded: number; inProgress: number; failed: number; needsReview: number };
+
+function gradingCounts(s: StatusCount[]): GradingCounts {
+  const n = (st: string) => s.find((x) => x.status === st)?.n ?? 0;
+  return {
+    // Duplicates and cancelled files aren't counted, so "x of y graded" adds up.
+    total: n("graded") + n("queued") + n("grading") + n("failed"),
+    graded: n("graded"),
+    inProgress: n("queued") + n("grading"),
+    failed: n("failed"),
+    needsReview: s.reduce((acc, x) => acc + (x.review || 0), 0),
+  };
+}
 
 export async function courseAssignments(courseId: string): Promise<AssignmentCard[]> {
   const asgs = await all<AssignmentRow>("select * from assignment where course_id = ? order by position, created_at", courseId);
   if (!asgs.length) return [];
-  const stats = await all<{ assignment_id: string; status: string; n: number; review: number }>(
-    `select assignment_id, status, count(*) n,
-            sum(case when status = 'graded' and reviewed = 0 and (near_of is not null or json_extract(result, '$.confidence') = 'low') then 1 else 0 end) review
+  const stats = await all<StatusCount & { assignment_id: string }>(
+    `select assignment_id, status, count(*) n, ${NEEDS_REVIEW_SQL} review
        from submission where assignment_id in (${asgs.map(() => "?").join(",")}) group by assignment_id, status`,
     ...asgs.map((a) => a.id),
   );
   return asgs.map((a) => {
-    const s = stats.filter((x) => x.assignment_id === a.id);
-    const n = (st: string) => s.find((x) => x.status === st)?.n ?? 0;
     const rows = parseJson<{ name: string }[]>(a.rubric_rows, []).filter((r) => r.name?.trim());
     return {
       id: a.id,
@@ -89,14 +99,48 @@ export async function courseAssignments(courseId: string): Promise<AssignmentCar
       points: a.points,
       rubricItems: a.rubric_method === "none" ? 0 : rows.length,
       rubricMethod: a.rubric_method,
-      // Duplicates and cancelled files aren't counted, so "x of y graded" adds up.
-      total: n("graded") + n("queued") + n("grading") + n("failed"),
-      graded: n("graded"),
-      inProgress: n("queued") + n("grading"),
-      failed: n("failed"),
-      needsReview: s.reduce((acc, x) => acc + (x.review || 0), 0),
+      ...gradingCounts(stats.filter((x) => x.assignment_id === a.id)),
     };
   });
+}
+
+export type CourseStats = GradingCounts & {
+  /** Teachers first, then Graders, by name. */
+  people: { name: string; role: Role }[];
+  /** When the latest file was uploaded, or null if there are none. */
+  lastUpload: string | null;
+};
+
+/** People, grading progress and the latest upload for each course the user can open, by course id. */
+export async function courseStats(user: Me): Promise<Record<string, CourseStats>> {
+  // Admins (?1) can open every course; everyone else, the courses they're in.
+  const [people, files] = await Promise.all([
+    all<{ course_id: string; name: string; role: Role }>(
+      `select e.course_id, u.name, e.role from enrollment e join "user" u on u.id = e.user_id
+        where ?1 or e.course_id in (select course_id from enrollment where user_id = ?2)
+        order by case e.role when 'Teacher' then 0 else 1 end, u.name collate nocase`,
+      user.isAdmin,
+      user.id,
+    ),
+    all<StatusCount & { course_id: string; last: string | null }>(
+      `select a.course_id, s.status, count(*) n, ${NEEDS_REVIEW_SQL} review, max(s.uploaded_at) last
+         from submission s join assignment a on a.id = s.assignment_id
+        where ?1 or a.course_id in (select course_id from enrollment where user_id = ?2)
+        group by a.course_id, s.status`,
+      user.isAdmin,
+      user.id,
+    ),
+  ]);
+  const out: Record<string, CourseStats> = {};
+  for (const id of new Set([...people.map((p) => p.course_id), ...files.map((f) => f.course_id)])) {
+    const f = files.filter((x) => x.course_id === id);
+    out[id] = {
+      ...gradingCounts(f),
+      people: people.filter((p) => p.course_id === id).map((p) => ({ name: p.name, role: p.role })),
+      lastUpload: f.reduce<string | null>((m, x) => (x.last && (!m || x.last > m) ? x.last : m), null),
+    };
+  }
+  return out;
 }
 
 export async function courseContents(courseId: string): Promise<{ assignments: number; submissions: number }> {

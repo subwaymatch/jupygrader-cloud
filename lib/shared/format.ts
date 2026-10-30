@@ -83,3 +83,21 @@ export function courseDatesLabel(start: string | null, end: string, autoEnd: boo
   if (start) return fmtLongDay(start) + " to " + fmtLongDay(end);
   return "Until " + fmtLongDay(end);
 }
+
+/** "Aug 25 to Dec 12, 2026", or "Until Oct 30, 2027" when the course has no start date or ends automatically. */
+export function courseSpanLabel(start: string | null, end: string, autoEnd: boolean): string {
+  if (!start || autoEnd) return "Until " + fmtLongDay(end);
+  return (start.slice(0, 4) === end.slice(0, 4) ? fmtDay(start) : fmtLongDay(start)) + " to " + fmtLongDay(end);
+}
+
+const DAY_MS = 86_400_000;
+const dayNum = (day: string) => Math.floor(Date.parse(day.slice(0, 10) + "T00:00:00Z") / DAY_MS);
+
+/** Where a running course is in its term: "Starts Jan 12", "Week 10 of 16", or "Week 10" when it ends automatically. Null once it has ended, or without a start date. */
+export function courseTermLabel(start: string | null, end: string, autoEnd: boolean, today = todayIso()): string | null {
+  if (!start || end < today) return null;
+  if (start > today) return "Starts " + (start.slice(0, 4) === today.slice(0, 4) ? fmtDay(start) : fmtLongDay(start));
+  const week = Math.floor((dayNum(today) - dayNum(start)) / 7) + 1;
+  if (autoEnd) return "Week " + week;
+  return `Week ${week} of ${Math.ceil((dayNum(end) - dayNum(start) + 1) / 7)}`;
+}

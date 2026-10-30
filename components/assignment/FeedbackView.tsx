@@ -9,6 +9,7 @@ import { Button, IconButton } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/Dialog";
 import { Input, Textarea } from "@/components/ui/Field";
 import { Icon } from "@/components/ui/Icon";
+import { Mascot } from "@/components/ui/Mascot";
 import { ActionMenu, type MenuEntry } from "@/components/ui/Menu";
 import { toast } from "@/components/ui/Toast";
 import { api, copyText, downloadUrl, errorMessage } from "@/lib/client/api";
@@ -349,8 +350,8 @@ export function FeedbackView({
                     </div>
                   )}
                   {d.reviewed && (
-                    <div className="callout">
-                      <Icon name="checkCircle" size={15} style={{ color: "var(--c-success-text)" }} />
+                    <div className="callout callout--mascot">
+                      <Mascot pose="stamp" size={44} />
                       <span>Reviewed by {d.reviewedBy ?? "a grader"}</span>
                     </div>
                   )}

@@ -1,5 +1,6 @@
 import { HelpTabs } from "@/components/HelpTabs";
 import { Icon } from "@/components/ui/Icon";
+import { Mascot } from "@/components/ui/Mascot";
 import { all } from "@/lib/server/db";
 import { pageUser } from "@/lib/server/session";
 import { getSettings } from "@/lib/server/settings";
@@ -251,11 +252,12 @@ export default async function HelpPage() {
 
   return (
     <div className="page page--medium" style={{ maxWidth: 1000 }}>
-      <div className="page-head">
+      <div className="page-head page-head--mascot">
         <div className="page-head__text">
           <h1 className="h1">Help</h1>
           <p className="lede">What each role can do, how grading works and how the AI is used.</p>
         </div>
+        <Mascot pose="lifebuoy" size={96} className="page-head__mascot" />
       </div>
       <HelpTabs roles={roles} flow={flow} ai={ai} />
     </div>
