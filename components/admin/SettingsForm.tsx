@@ -241,6 +241,19 @@ export function SettingsForm({ initial, keyInfo, usage, emailOn }: Props) {
       </section>
 
       <section className="settings-section">
+        <div className="stack" style={{ gap: 4 }}>
+          <h2 className="h2">Canvas</h2>
+          <p className="muted">
+            Teachers and graders can link courses to Canvas, import students&apos; submissions and post grades back. Each person connects their own
+            Canvas account with an access token, so Canvas&apos;s own permissions apply.
+          </p>
+        </div>
+        <Field label="Canvas address" optional htmlFor="st-canvas" hint="Your school's Canvas site. Leave blank to turn Canvas off.">
+          <Input id="st-canvas" value={s.canvasUrl} onChange={(e) => set({ canvasUrl: e.target.value })} placeholder="https://canvas.university.edu" />
+        </Field>
+      </section>
+
+      <section className="settings-section">
         <h2 className="h2">Data retention</h2>
         <Field
           label="Delete submissions and graded results after"

@@ -30,7 +30,9 @@ export type Pose =
   | "stamp"
   | "archive"
   | "desk"
-  | "lifebuoy";
+  | "lifebuoy"
+  | "connect"
+  | "sync";
 
 /** The mascot in one of its poses. Decorative (hidden from screen readers) unless `alt` is set. */
 export function Mascot({ pose, size = 120, alt = "", bob = false, className }: { pose: Pose; size?: number; alt?: string; bob?: boolean; className?: string }) {

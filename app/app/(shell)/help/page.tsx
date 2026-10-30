@@ -14,15 +14,17 @@ const PERMS: (string | [string, boolean, boolean, boolean])[] = [
   ["Upload, grade and regrade files", true, true, true],
   ["Review AI feedback, change scores and mark files reviewed", true, true, true],
   ["Share student links and export results", true, true, true],
+  ["Import files from Canvas and post grades to it", true, true, true],
   "Assignments",
   ["Duplicate assignments", true, true, true],
   ["Create, edit, reorder and delete assignments and rubrics", true, false, true],
+  ["Link the course and its assignments to Canvas", true, false, true],
   "People",
   ["Invite people and change course roles", true, false, true],
   "Site",
   ["Approve instructor accounts and manage all users", false, false, true],
   ["View the activity log", false, false, true],
-  ["Change site settings: AI model, API key, spending cap and data retention", false, false, true],
+  ["Change site settings: AI model, API key, spending cap, data retention and the Canvas address", false, false, true],
 ];
 
 const yes = (v: boolean) =>
@@ -122,10 +124,10 @@ export default async function HelpPage() {
       <div>
         {[
           ["Set up the assignment", "Teacher", "Add a title, total points and a rubric. Paste rubric text or upload a document, and the AI splits it into scored items you can edit. You can also add an answer key, choose a grading style, set the feedback tone and length, and leave notes for the AI."],
-          ["Upload submissions", "Teacher or Grader", "Drop in notebooks or other files, or a .zip of them. Exact copies of a file that was already uploaded are skipped as duplicates. Files that closely match another submission are flagged."],
+          ["Upload submissions", "Teacher or Grader", "Drop in notebooks or other files, or a .zip of them, or import them from a linked Canvas assignment. Exact copies of a file that was already uploaded are skipped as duplicates. Files that closely match another submission are flagged."],
           ["The AI grades each file", "Automatic", "For every file, the AI scores each rubric item, comments on specific cells or passages and writes a short summary. Files are graded a few at a time in the background, so you can close the page. If grading fails, retry the file."],
           ["Review flagged grades", "Teacher or Grader", "Files the AI wasn't confident about, and close matches, are marked Needs review. Open a file to check its scores next to the notebook, change any item, then mark it reviewed. Changed scores keep the AI's original score visible."],
-          ["Share results", "Teacher or Grader", "Send each student their link. It always shows the latest grade, and making a new link stops the old one working. You can also download notebooks with the feedback inserted as cells, or export grades as CSV."],
+          ["Share results", "Teacher or Grader", "Send each student their link. It always shows the latest grade, and making a new link stops the old one working. You can also download notebooks with the feedback inserted as cells, export grades as CSV, or post grades and feedback to Canvas."],
           ["Change the setup and regrade", "Teacher", "Editing the rubric, grading style or model doesn't change existing grades. They're marked as graded with earlier settings, and you choose when to regrade them."],
         ].map(([title, who, body], i) => (
           <div className="flow-step" key={title}>

@@ -6,6 +6,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Field";
 import { Icon } from "@/components/ui/Icon";
+import { Mascot } from "@/components/ui/Mascot";
+import { Select } from "@/components/ui/Select";
 import { toast } from "@/components/ui/Toast";
 import { api, errorMessage } from "@/lib/client/api";
 import { pointsMismatch, rubricProblem, scaleRows } from "@/lib/shared/rubric";
@@ -15,8 +17,26 @@ import { MismatchDialog, type MismatchChoice } from "./MismatchDialog";
 import { PointsField, RubricEditor, type RubricValue } from "./RubricEditor";
 import type { UploadedDoc } from "./uploadDoc";
 
-export function NewAssignmentForm({ courseId, courseName, model, aiDefaults }: { courseId: string; courseName: string; model: string; aiDefaults: AiDefaults }) {
+type CanvasOption = { id: string; name: string; points: number | null; linkedTo: { title: string } | null };
+
+export function NewAssignmentForm({
+  courseId,
+  courseName,
+  model,
+  aiDefaults,
+  canvasCourse,
+}: {
+  courseId: string;
+  courseName: string;
+  model: string;
+  aiDefaults: AiDefaults;
+  /** The linked Canvas course, when the person can use Canvas here. */
+  canvasCourse: string | null;
+}) {
   const router = useRouter();
+  const [canvasOptions, setCanvasOptions] = useState<CanvasOption[] | null>(null);
+  const [canvasPick, setCanvasPick] = useState<{ id: string; name: string } | null>(null);
+  const [canvasBusy, setCanvasBusy] = useState(false);
   const [title, setTitle] = useState("");
   const [task, setTask] = useState("");
   const [taskFile, setTaskFile] = useState<UploadedDoc | null>(null);
@@ -28,6 +48,37 @@ export function NewAssignmentForm({ courseId, courseName, model, aiDefaults }: {
   const [busy, setBusy] = useState(false);
   const [mismatchOpen, setMismatchOpen] = useState(false);
   const mismatch = pointsMismatch(rubric.method, rubric.rows, rubric.points);
+
+  async function loadCanvas() {
+    setCanvasBusy(true);
+    try {
+      const r = await api<{ assignments: CanvasOption[] }>(`/api/courses/${courseId}/canvas`);
+      setCanvasOptions(r.assignments.filter((a) => !a.linkedTo));
+      if (!r.assignments.some((a) => !a.linkedTo)) toast("Every Canvas assignment in this course is already linked.", { error: true });
+    } catch (err) {
+      toast(errorMessage(err), { error: true });
+    } finally {
+      setCanvasBusy(false);
+    }
+  }
+
+  /** Copies the Canvas assignment's title, points and instructions, and links to it on create. */
+  async function fillFromCanvas(id: string) {
+    setCanvasBusy(true);
+    try {
+      const a = await api<{ id: string; name: string; points: number | null; text: string }>(`/api/courses/${courseId}/canvas?id=${encodeURIComponent(id)}`);
+      setTitle(a.name);
+      setTitleError("");
+      if (a.text) setTask(a.text);
+      if (a.points) setRubric((r) => ({ ...r, points: String(a.points) }));
+      setCanvasPick({ id: a.id, name: a.name });
+      setCanvasOptions(null);
+    } catch (err) {
+      toast(errorMessage(err), { error: true });
+    } finally {
+      setCanvasBusy(false);
+    }
+  }
 
   async function create(choice?: MismatchChoice) {
     if (!title.trim()) {
@@ -45,7 +96,7 @@ export function NewAssignmentForm({ courseId, courseName, model, aiDefaults }: {
     setBusy(true);
     setError("");
     try {
-      const res = await api<{ id: string }>(`/api/courses/${courseId}/assignments`, {
+      const res = await api<{ id: string; canvasError?: string }>(`/api/courses/${courseId}/assignments`, {
         body: {
           title,
           taskText: task,
@@ -57,9 +108,11 @@ export function NewAssignmentForm({ courseId, courseName, model, aiDefaults }: {
           rubricRows: r.rows,
           ...settings,
           addAnswerKeys: keys.map((k) => k.key).filter(Boolean),
+          canvasAssignmentId: canvasPick?.id ?? null,
         },
       });
-      toast(`Created ${title.trim()}`);
+      if (res.canvasError) toast(`Created ${title.trim()}, but it isn't linked to Canvas: ${res.canvasError}`, { error: true, timeout: 9000 });
+      else toast(`Created ${title.trim()}`);
       router.push(`/app/courses/${courseId}/assignments/${res.id}`);
       router.refresh();
     } catch (err) {
@@ -77,6 +130,51 @@ export function NewAssignmentForm({ courseId, courseName, model, aiDefaults }: {
         </Link>
         <h1 className="h1">New assignment</h1>
       </div>
+      {canvasCourse && (
+        <div className="canvas-fill">
+          <Mascot pose="sync" size={56} />
+          <div className="canvas-fill__text">
+            {canvasPick ? (
+              <>
+                <strong>Linked to {canvasPick.name} in Canvas</strong>
+                <span className="muted">Its title, points and instructions are filled in below. You can change them.</span>
+              </>
+            ) : (
+              <>
+                <strong>Start from a Canvas assignment</strong>
+                <span className="muted">
+                  Copies the title, points and instructions from {canvasCourse}, and links the two so you can import submissions and post grades.
+                </span>
+              </>
+            )}
+            {canvasOptions && (
+              <div className="canvas-pick">
+                <Select
+                  value={null}
+                  onChange={fillFromCanvas}
+                  ariaLabel="Canvas assignment"
+                  placeholder="Choose a Canvas assignment"
+                  options={canvasOptions.map((a) => ({ value: a.id, label: a.points ? `${a.name} · ${a.points} points` : a.name }))}
+                />
+                <Button variant="ghost" onClick={() => setCanvasOptions(null)}>
+                  Cancel
+                </Button>
+              </div>
+            )}
+          </div>
+          {canvasPick ? (
+            <Button variant="ghost" size="sm" onClick={() => setCanvasPick(null)}>
+              Don&apos;t link
+            </Button>
+          ) : (
+            !canvasOptions && (
+              <Button variant="secondary" size="sm" icon="download" onClick={loadCanvas} loading={canvasBusy}>
+                Choose
+              </Button>
+            )
+          )}
+        </div>
+      )}
       <Field label="Title" htmlFor="asg-title" error={titleError}>
         <Input
           id="asg-title"
