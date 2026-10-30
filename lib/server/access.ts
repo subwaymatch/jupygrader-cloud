@@ -12,6 +12,8 @@ export type CourseRow = {
   auto_end: number;
   created_by: string | null;
   created_at: string;
+  canvas_course_id: string | null;
+  canvas_course_name: string | null;
 };
 
 export type AssignmentRow = {
@@ -37,6 +39,9 @@ export type AssignmentRow = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  canvas_assignment_id: string | null;
+  canvas_assignment_name: string | null;
+  canvas_points: number | null;
 };
 
 export type SubmissionRow = {
@@ -74,6 +79,11 @@ export type SubmissionRow = {
   share_token: string | null;
   share_off: number;
   history: string;
+  canvas_user_id: string | null;
+  canvas_attachment_id: string | null;
+  canvas_attempt: number | null;
+  canvas_posted_at: string | null;
+  canvas_posted_score: number | null;
 };
 
 export const isArchived = (c: Pick<CourseRow, "end_date">) => !!c.end_date && c.end_date < todayIso();

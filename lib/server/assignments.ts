@@ -32,6 +32,7 @@ export async function assignmentData(a: AssignmentRow): Promise<AssignmentData> 
     aiInteractive: cleanOutputPolicy(parseJson(a.ai_interactive, null)),
     version: a.version,
     answerKeys: keys,
+    canvas: a.canvas_assignment_id ? { id: a.canvas_assignment_id, name: a.canvas_assignment_name || "", points: a.canvas_points } : null,
   };
 }
 
@@ -66,6 +67,8 @@ export type AssignmentInput = {
   aiInteractive?: OutputPolicy | null;
   addAnswerKeys?: string[];
   removeAnswerKeys?: string[];
+  /** On creation: the Canvas assignment to link it to. */
+  canvasAssignmentId?: string | null;
 };
 
 function cleanRows(rows: unknown): RubricRow[] {

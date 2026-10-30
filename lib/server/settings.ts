@@ -25,6 +25,8 @@ export type SiteSettings = {
   aiImages: OutputPolicy;
   aiInteractive: OutputPolicy;
   reasoningEffort: "" | Effort;
+  /** The school's Canvas address, such as https://canvas.example.edu. Blank turns Canvas off. */
+  canvasUrl: string;
 };
 
 export type SiteSettingsWithKey = SiteSettings & { aiApiKey: string; aiKeySource: "settings" | "env" | "none" };
@@ -48,6 +50,7 @@ export function defaultSettings(): SiteSettings {
     aiImages: { mode: "none", limit: 6 },
     aiInteractive: { mode: "none", limit: 6 },
     reasoningEffort: "",
+    canvasUrl: "",
   };
 }
 

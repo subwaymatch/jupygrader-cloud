@@ -11,15 +11,19 @@ import { toast } from "@/components/ui/Toast";
 import { api, errorMessage } from "@/lib/client/api";
 import { authClient } from "@/lib/client/auth-client";
 import type { Me } from "@/lib/shared/types";
+import { CanvasAccount } from "./CanvasAccount";
 
 export function AccountForm({
   me,
   roles,
   deleteBlock,
+  canvas,
 }: {
   me: Me;
   roles: { courseId: string; course: string; role: string }[];
   deleteBlock: string | null;
+  /** Shown when Canvas is set up, and to admins so they know where to set it up. */
+  canvas: { url: string; account: { name: string; connectedAt: string } | null } | null;
 }) {
   const router = useRouter();
   const confirm = useConfirm();
@@ -174,6 +178,7 @@ export function AccountForm({
         />
         {blocked && <span className="field__error">Notifications are blocked for this site. Allow them in your browser settings, then try again.</span>}
       </section>
+      {canvas && <CanvasAccount url={canvas.url} account={canvas.account} />}
       <section className="settings-section">
         <div className="stack" style={{ gap: 4 }}>
           <h2 className="h2">Course roles</h2>

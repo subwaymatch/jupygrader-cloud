@@ -13,6 +13,7 @@ Teachers set up an assignment with instructions, a rubric and an optional answer
 - **Review.** Each file's feedback opens in a new tab, as a split view with the notebook on the left (with its feedback, as nbconvert HTML when available) and the scores on the right. Low-confidence grades and close matches are flagged. Edit any rubric line (the AI's score stays visible and every change is in the history), override the total, mark files reviewed. Keyboard shortcuts: <kbd>J</kbd>/<kbd>K</kbd> next and previous, <kbd>R</kbd> reviewed, <kbd>E</kbd> edit total.
 - **Feedback into the notebook.** Downloads insert a summary cell at the top and a `> **Feedback:**` Markdown cell after each commented cell, keeping every original cell, output and piece of metadata. Feedback cells are tagged (`jupygrader-feedback`), so grading a notebook that already has feedback replaces it instead of stacking it. Code files get feedback as comments in the file's own comment syntax; Markdown and text files get it after each paragraph. HTML, plain-text and JSON exports are available too, for one file or a `.zip` of many, plus a grades CSV.
 - **Student links.** A private page per file with the score, rubric, and the work with its feedback (the same nbconvert HTML as the feedback page, for notebooks). Links can be turned off or replaced. Students don't need accounts.
+- **Canvas.** Link a course to its Canvas course, and each assignment to a Canvas assignment, or create an assignment from one (title, points and instructions). Import the files students submitted, including new attempts and `.zip` files, then post grades back, each with an optional comment (score, summary and rubric) and the file with feedback attached. Scores are scaled to the Canvas assignment's points. Each person connects their own Canvas account with an access token, so Canvas's permissions apply. See [Canvas](#canvas).
 - **Admin.** Overview of what needs attention, users and roles, invitations, an activity log, and site settings (AI connection with an encrypted API key, plots and interactive outputs sent to the AI, concurrency, data retention).
 - **Public home page.** `/` introduces Jupygrader to instructors, graders and students and links to sign-in and account requests. The signed-in app lives under `/app`; old `/courses`, `/admin`, `/account`, `/help` and `/submissions` links redirect there. Student links (`/r/...`) and invitations (`/invite/...`) keep their addresses.
 - **Works on phones.** The sidebar becomes a slide-in menu, tables become cards, and the feedback page switches between Feedback and File tabs.
@@ -153,12 +154,22 @@ Graded notebooks are rendered as HTML by Jupyter's own nbconvert (the JupyterLab
 
 | Name | Kind | Purpose |
 | --- | --- | --- |
-| `BETTER_AUTH_SECRET` | secret, required | Signs sessions and encrypts the AI API key stored in D1. Changing it signs everyone out and makes the stored API key unreadable (enter it again in Settings). |
+| `BETTER_AUTH_SECRET` | secret, required | Signs sessions and encrypts the AI API key and Canvas access tokens stored in D1. Changing it signs everyone out and makes the stored API key and tokens unreadable (enter the key again in Settings; everyone reconnects Canvas). |
 | `APP_URL` | var | Public URL of the app. |
 | `RESEND_API_KEY`, `EMAIL_FROM` | secrets, optional | Send email through Resend. |
 | `AI_BASE_URL`, `AI_API_KEY` | optional | Defaults for the AI connection. Values saved in Admin > Settings take precedence. |
 
-Everything else (registration, allowed email domains, concurrency, retention, reasoning effort, sending plots and interactive outputs to the AI) is set by an admin in the app.
+Everything else (registration, allowed email domains, concurrency, retention, reasoning effort, sending plots and interactive outputs to the AI, the Canvas address) is set by an admin in the app.
+
+### Canvas
+
+1. An admin enters the school's Canvas address (for example `https://canvas.university.edu`) in **Admin > Settings > Canvas**. Leaving it blank turns Canvas off.
+2. Each teacher or grader connects their own Canvas account on the **Account** page with a personal access token, made in Canvas under **Account > Settings > New access token**. Jupygrader stores it encrypted and acts as that person, so it only sees the courses they teach or assist in. No Canvas developer key or admin approval is needed.
+3. A teacher links the course to its Canvas course in **Course settings**, then links each assignment from the assignment's **Canvas** menu, or chooses a Canvas assignment when creating one.
+4. From the assignment's **Canvas** menu, **Import submissions** copies each student's latest files in and queues them for grading. Files are named the way Canvas's own bulk download names them (`lastfirst_userid_file.ipynb`) and keep the student's name. Running it again imports only new attempts.
+5. **Post grades** sends each student's grade, scaled to the Canvas assignment's points, optionally with a comment and the file with feedback attached. Only a student's latest attempt can be posted, and only when it has one graded file. Students see grades when Canvas releases them for that assignment.
+
+Imports and posting run a few students per request, driven by the page, so large classes stay within Worker limits. The code is in `lib/server/canvas.ts` (API client and tokens) and `lib/server/canvas-sync.ts` (import and posting).
 
 ## How grading works
 
@@ -202,4 +213,4 @@ test/                   unit tests (Vitest)
 
 ## Not included yet
 
-The design prototype also covers Canvas LMS integration (linking courses, importing submissions, posting grades) and an admin "view as" mode. Neither is implemented here.
+The design prototype also covers an admin "view as" mode, which isn't implemented here.
