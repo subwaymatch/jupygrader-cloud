@@ -1023,6 +1023,13 @@ button.chip:hover {
 .callout__title {
   font-weight: 600;
 }
+/* A small mascot in place of the icon. */
+.callout--mascot {
+  align-items: center;
+}
+.callout--mascot > .mascot {
+  margin: -8px 0 -8px -6px;
+}
 
 /* ---------- Lists and tables ---------- */
 .list {

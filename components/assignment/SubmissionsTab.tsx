@@ -359,8 +359,8 @@ export function SubmissionsTab({
             </div>
           ) : (
             <div className={"dropzone dropzone--compact" + (dragging ? " dropzone--active" : "")}>
-              <span className="row" style={{ gap: 10 }}>
-                <Icon name="uploadCloud" size={17} />
+              <span className="row" style={{ gap: 12 }}>
+                <Mascot pose="inbox" size={56} bob={dragging} />
                 <span>
                   <strong style={{ fontWeight: 500 }}>{dragging ? "Release to upload." : "Drop files anywhere on this tab to grade them."}</strong>{" "}
                   <span className="muted">Archives (.zip) are unpacked.</span>
@@ -508,7 +508,7 @@ export function SubmissionsTab({
 
           {queueText && (
             <div className={"queue-note" + (queueText.paused ? " queue-note--paused" : "")}>
-              <Icon name={queueText.paused ? "alertTriangle" : "clock"} size={15} />
+              {queueText.paused ? <Icon name="alertTriangle" size={15} /> : <Mascot pose="desk" size={44} />}
               <span>{queueText.text}</span>
             </div>
           )}
@@ -799,7 +799,10 @@ function Results({
   return (
     <section className="results" id="results">
       <div className="section-head">
-        <h2 className="h2">Results</h2>
+        <h2 className="h2 results__title">
+          <Mascot pose="chart" size={52} />
+          Results
+        </h2>
         <Button variant="ghost" size="sm" iconRight={open ? "chevronUp" : "chevronDown"} onClick={() => setOpen(!open)} aria-expanded={open}>
           {open ? "Hide" : "Show"}
         </Button>
