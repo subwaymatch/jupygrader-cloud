@@ -15,10 +15,13 @@ export function CourseSettingsForm({
   course,
   contents,
   retentionLabel,
+  canvas,
 }: {
   course: CourseView;
   contents: { assignments: number; submissions: number };
   retentionLabel: string;
+  /** The Canvas section, when Canvas is set up. */
+  canvas?: React.ReactNode;
 }) {
   const router = useRouter();
   const confirm = useConfirm();
@@ -124,7 +127,8 @@ export function CourseSettingsForm({
           Save changes
         </Button>
       </div>
-      <section className="settings-section" style={{ marginTop: 24 }}>
+      {canvas}
+      <section className="settings-section" style={canvas ? undefined : { marginTop: 24 }}>
         <h2 className="h2">Reset course</h2>
         <p className="muted">
           Deletes every assignment, file, grade and student link, and keeps the course, its people and settings. Useful for starting a new term with the same team.

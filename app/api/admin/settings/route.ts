@@ -2,6 +2,7 @@ import { logActivity } from "@/lib/server/activity";
 import { badRequest, handle, readJson } from "@/lib/server/http";
 import { requireAdmin } from "@/lib/server/session";
 import { getSettings, getSettingsWithKey, saveSettings, type SiteSettings } from "@/lib/server/settings";
+import { canvasOrigin } from "@/lib/shared/canvas";
 import { AI_PROVIDERS, cleanOutputPolicy, isAiProvider, MAX_AI_IMAGES, type Effort } from "@/lib/shared/constants";
 
 export const PUT = handle(async (req: Request) => {
@@ -57,6 +58,12 @@ export const PUT = handle(async (req: Request) => {
     patch.reasoningEffort = b.reasoningEffort as "" | Effort;
   } else if (current.reasoningEffort && !efforts.includes(current.reasoningEffort)) {
     patch.reasoningEffort = "";
+  }
+  if (b.canvasUrl !== undefined) {
+    const raw = String(b.canvasUrl).trim();
+    const origin = raw ? canvasOrigin(raw) : "";
+    if (origin === null) throw badRequest("Enter your Canvas address as an https:// URL, such as https://canvas.example.edu.");
+    patch.canvasUrl = origin;
   }
   await saveSettings(patch);
   await logActivity({ type: "settings", user: me, text: `Changed site settings: ${Object.keys(patch).map((k) => (k === "aiApiKey" ? "API key" : k)).join(", ")}` });

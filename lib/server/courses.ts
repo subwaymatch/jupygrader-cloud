@@ -190,6 +190,14 @@ export async function resetCourse(courseId: string) {
 }
 
 export function courseView(c: CourseRow) {
-  return { id: c.id, name: c.name, startDate: c.start_date, endDate: c.end_date, autoEnd: !!c.auto_end, archived: isArchived(c) };
+  return {
+    id: c.id,
+    name: c.name,
+    startDate: c.start_date,
+    endDate: c.end_date,
+    autoEnd: !!c.auto_end,
+    archived: isArchived(c),
+    canvasCourse: c.canvas_course_id ? { id: c.canvas_course_id, name: c.canvas_course_name || "" } : null,
+  };
 }
 export type CourseView = ReturnType<typeof courseView>;

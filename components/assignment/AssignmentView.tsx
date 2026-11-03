@@ -16,6 +16,7 @@ import { STYLES } from "@/lib/shared/constants";
 import { plural } from "@/lib/shared/format";
 import type { AssignmentData, SubmissionListItem } from "@/lib/shared/types";
 import type { AiDefaults } from "@/components/assignments/Fields";
+import { CanvasMenu, type CanvasContext } from "./CanvasMenu";
 import { InstructionsTab, RubricTab, SettingsTab } from "./EditTabs";
 import { SubmissionsTab } from "./SubmissionsTab";
 import { useSubmissions, type ListResponse } from "./useSubmissions";
@@ -44,6 +45,7 @@ export function AssignmentView({
   model,
   aiDefaults,
   initialList,
+  canvas,
 }: {
   initialAsg: AssignmentData;
   courseId: string;
@@ -54,6 +56,8 @@ export function AssignmentView({
   model: string;
   aiDefaults: AiDefaults;
   initialList: ListResponse;
+  /** Null when Canvas isn't set up on this site. */
+  canvas: CanvasContext | null;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -190,6 +194,18 @@ export function AssignmentView({
         </div>
         {canGrade && (
           <div className="row">
+            {canvas && (
+              <CanvasMenu
+                asg={asg}
+                onLinked={(link) => setAsg((a) => ({ ...a, canvas: link }))}
+                items={items}
+                refresh={list.refresh}
+                canEdit={canEdit}
+                canUpload={canUpload}
+                courseId={courseId}
+                canvas={canvas}
+              />
+            )}
             <ActionMenu
               trigger={
                 <button className="btn btn--secondary">

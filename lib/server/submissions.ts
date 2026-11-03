@@ -65,6 +65,9 @@ export function toListItem(row: SubmissionRow, asg: AssignmentRow, model?: strin
     crit: graded && result ? result.criteria.map((c) => c.earned) : null,
     tokens: usage ? usage.input + usage.output : 0,
     costUsd: row.cost_usd || 0,
+    canvas: row.canvas_user_id
+      ? { userId: row.canvas_user_id, attempt: row.canvas_attempt, postedAt: row.canvas_posted_at, postedScore: row.canvas_posted_score }
+      : null,
   };
 }
 
@@ -137,6 +140,9 @@ export async function createSubmission(opts: {
   userId: string;
   batchId: string | null;
   regradeDuplicates: boolean;
+  /** The student's name when it's known, as for files imported from Canvas. */
+  student?: string;
+  canvas?: { userId: string; attachmentId: string; attempt: number | null };
 }): Promise<{ row: SubmissionRow; queued: boolean }> {
   const { asg, file, bytes } = opts;
   const fileName = (file.name || "file").split("/").pop()!.slice(0, 200);
@@ -167,15 +173,16 @@ export async function createSubmission(opts: {
 
   const status: SubmissionStatus = dup && !opts.regradeDuplicates ? "skipped" : "queued";
   const now = new Date().toISOString();
-  const history: HistoryEntry[] = [{ who: "", at: now, text: "Uploaded" }];
+  const history: HistoryEntry[] = [{ who: "", at: now, text: opts.canvas ? "Imported from Canvas" : "Uploaded" }];
   await run(
-    `insert into submission (id, assignment_id, file_name, student, sha256, size, content_type, kind, r2_key, status, note,
-       uploaded_by, uploaded_at, batch_id, queued_at, near_of, minhash, share_token, history)
-     values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `insert into submission (id, assignment_id, file_name, student, student_set, sha256, size, content_type, kind, r2_key, status, note,
+       uploaded_by, uploaded_at, batch_id, queued_at, near_of, minhash, share_token, history, canvas_user_id, canvas_attachment_id, canvas_attempt)
+     values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     id,
     asg.id,
     fileName,
-    studentFromFile(fileName),
+    (opts.student || studentFromFile(fileName)).slice(0, 200),
+    opts.student ? 1 : 0,
     sha,
     bytes.length,
     contentType,
@@ -191,6 +198,9 @@ export async function createSubmission(opts: {
     sig ? JSON.stringify(sig) : null,
     newShareToken(),
     JSON.stringify(history),
+    opts.canvas?.userId ?? null,
+    opts.canvas?.attachmentId ?? null,
+    opts.canvas?.attempt ?? null,
   );
   const row = (await first<SubmissionRow>("select * from submission where id = ?", id))!;
   return { row, queued: status === "queued" };

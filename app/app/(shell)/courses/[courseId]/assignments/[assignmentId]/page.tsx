@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { AssignmentView } from "@/components/assignment/AssignmentView";
 import { getCourseAccess, type AssignmentRow, type SubmissionRow } from "@/lib/server/access";
 import { assignmentData } from "@/lib/server/assignments";
+import { canvasStatus } from "@/lib/server/canvas";
 import { all, first } from "@/lib/server/db";
 import { queueInfo } from "@/lib/server/queue-info";
 import { pageUser } from "@/lib/server/session";
@@ -24,12 +25,14 @@ export default async function AssignmentPage({
   if (!access) notFound();
   const asg = await first<AssignmentRow>("select * from assignment where id = ? and course_id = ?", assignmentId, courseId);
   if (!asg) notFound();
-  const [data, rows, settings, queue] = await Promise.all([
+  const [data, rows, settings, queue, canvas] = await Promise.all([
     assignmentData(asg),
     all<SubmissionRow>("select * from submission where assignment_id = ? order by uploaded_at desc, file_name", assignmentId),
     getSettings(),
     queueInfo(),
+    canvasStatus(me.id),
   ]);
+  const c = access.course;
   return (
     <AssignmentView
       initialAsg={data}
@@ -41,6 +44,7 @@ export default async function AssignmentPage({
       model={settings.model}
       aiDefaults={{ aiImages: settings.aiImages, aiInteractive: settings.aiInteractive }}
       initialList={{ items: rows.map((r) => toListItem(r, asg, settings.model)), queue, version: asg.version }}
+      canvas={canvas.enabled ? { status: canvas, course: c.canvas_course_id ? { id: c.canvas_course_id, name: c.canvas_course_name || "" } : null } : null}
     />
   );
 }

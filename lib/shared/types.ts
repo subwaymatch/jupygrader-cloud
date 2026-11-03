@@ -66,6 +66,8 @@ export type SubmissionListItem = {
   crit: number[] | null;
   tokens: number;
   costUsd: number;
+  /** For files imported from Canvas: the student's Canvas user, the attempt, and the score last posted back. */
+  canvas: { userId: string; attempt: number | null; postedAt: string | null; postedScore: number | null } | null;
 };
 
 export type AssignmentData = {
@@ -88,6 +90,20 @@ export type AssignmentData = {
   aiInteractive: OutputPolicy | null;
   version: number;
   answerKeys: { id: string; name: string; size: number }[];
+  /** The Canvas assignment this one is linked to. */
+  canvas: CanvasAssignmentLink | null;
+};
+
+export type CanvasAssignmentLink = { id: string; name: string; points: number | null };
+
+/** What the signed-in person can do with Canvas on a page. */
+export type CanvasStatus = {
+  /** An admin has set the Canvas address. */
+  enabled: boolean;
+  /** The address, such as https://canvas.example.edu. */
+  url: string;
+  /** The person has connected their Canvas account. */
+  connected: boolean;
 };
 
 export type CourseSummary = {
