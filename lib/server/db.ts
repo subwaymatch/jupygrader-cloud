@@ -1,10 +1,16 @@
+import { retrying } from "./d1-retry";
 import { getEnv } from "./env";
 
 type Param = string | number | null | boolean | undefined;
 
+/** The D1 database, with retries for its transient errors (see d1-retry.ts). */
+export function db(): D1Database {
+  return retrying(getEnv().DB);
+}
+
 function bindAll(sql: string, params: Param[]) {
   const values = params.map((p) => (p === undefined ? null : typeof p === "boolean" ? (p ? 1 : 0) : p));
-  return getEnv().DB.prepare(sql).bind(...values);
+  return db().prepare(sql).bind(...values);
 }
 
 export function stmt(sql: string, ...params: Param[]): D1PreparedStatement {
@@ -29,7 +35,7 @@ export async function batch(statements: D1PreparedStatement[]): Promise<D1Result
   const out: D1Result[] = [];
   // D1 limits the number of statements per batch; stay well under it.
   for (let i = 0; i < statements.length; i += 50) {
-    out.push(...(await getEnv().DB.batch(statements.slice(i, i + 50))));
+    out.push(...(await db().batch(statements.slice(i, i + 50))));
   }
   return out;
 }

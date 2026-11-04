@@ -3,11 +3,13 @@ import { LinkButton } from "@/components/ui/Button";
 import { Logo } from "@/components/ui/Logo";
 import { Mascot } from "@/components/ui/Mascot";
 
-/** Centers a dead-end card. Outside the app shell (`page`), it fills the window and shows the logo. */
-export function DeadEnd({ page = false, children }: { page?: boolean; children: ReactNode }) {
-  if (!page) return <div className="dead-end">{children}</div>;
+/** Centers a dead-end card. Outside the app shell (`page`), it fills the window and shows the logo. `plain` is
+ *  for content without a card, on a white page. */
+export function DeadEnd({ page = false, plain = false, children }: { page?: boolean; plain?: boolean; children: ReactNode }) {
+  const cls = "dead-end" + (plain ? " dead-end--plain" : "");
+  if (!page) return <div className={cls}>{children}</div>;
   return (
-    <div className="dead-end dead-end--page">
+    <div className={cls + " dead-end--page"}>
       <div className="dead-end__wrap">
         <Logo size={24} />
         {children}

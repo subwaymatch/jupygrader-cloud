@@ -6,8 +6,9 @@ import { HomeHeader } from "@/components/home/HomeHeader";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Logo } from "@/components/ui/Logo";
 import { countUsers } from "@/lib/server/accounts";
+import { isTransientD1Error } from "@/lib/server/d1-retry";
 import { currentUser } from "@/lib/server/session";
-import { getSettings } from "@/lib/server/settings";
+import { defaultSettings, getSettings } from "@/lib/server/settings";
 import { retentionLabel } from "@/lib/shared/constants";
 
 export const metadata = { title: { absolute: "Jupygrader · AI-assisted grading for Jupyter notebooks" } };
@@ -57,8 +58,23 @@ const FEATURES: [React.ReactNode, string, string][] = [
   [<DevicesMini key="dv" />, "Works on any device.", "Review grades on a laptop or a phone: the layout adapts to small screens."],
 ];
 
+/** The value of a database read, or the fallback if the database is briefly unavailable even after retries. */
+function orIfDbDown<T>(read: Promise<T>, fallback: T): Promise<T> {
+  return read.catch((err) => {
+    if (!isTransientD1Error(err)) throw err;
+    console.warn("Home page shown without the database:", err instanceof Error ? err.message : err);
+    return fallback;
+  });
+}
+
 export default async function Home() {
-  const [me, settings, users] = await Promise.all([currentUser(), getSettings(), countUsers()]);
+  // The home page is public, so a database hiccup shows the signed-out page with the default settings instead
+  // of an error. A count of 1 keeps "Set up Jupygrader" (only for a new site) from showing by mistake.
+  const [me, settings, users] = await Promise.all([
+    orIfDbDown(currentUser(), null),
+    orIfDbDown(getSettings(), defaultSettings()),
+    orIfDbDown(countUsers(), 1),
+  ]);
   const firstRun = users === 0;
   const canRequest = firstRun || settings.openReg;
   const request = firstRun ? "Set up Jupygrader" : "Request an account";
