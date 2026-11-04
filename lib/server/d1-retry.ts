@@ -5,6 +5,10 @@
  * past brief overloads and restarts, such as the moments after a deploy. Reads are retried for any transient
  * error. Writes are retried only for errors that mean the query never ran (the database turned it away or
  * couldn't be reached), so a write is never applied twice.
+ *
+ * Each attempt also has a time limit. A query that never answers would otherwise hold the request until the
+ * browser gives up, as happened after the deploy on 2026-11-04 (requests waited up to 135 s on almost no CPU).
+ * A read that runs out of time is retried; a write isn't, since it may still finish.
  */
 
 const TRANSIENT = [
@@ -16,6 +20,11 @@ const TRANSIENT = [
   "D1 DB is overloaded",
 ];
 const NEVER_RAN = ["D1 DB is overloaded", "Cannot resolve D1 DB due to transient issue"];
+const TIMED_OUT = "D1 query timed out";
+
+/** Time limits for one attempt, in milliseconds. Queries here take milliseconds; writes get D1's own 30 s limit. */
+const READ_TIMEOUT = 8_000;
+const WRITE_TIMEOUT = 30_000;
 
 /** Milliseconds to wait before each retry; each wait varies by ±25%. */
 const WAITS = [150, 600];
@@ -27,12 +36,20 @@ function message(err: unknown): string {
 /** Whether an error is one of D1's transient errors, which a later attempt may not hit. */
 export function isTransientD1Error(err: unknown): boolean {
   const m = message(err);
-  return TRANSIENT.some((t) => m.includes(t));
+  return [...TRANSIENT, TIMED_OUT].some((t) => m.includes(t));
 }
 
 export function shouldRetry(err: unknown, readOnly: boolean): boolean {
   const m = message(err);
-  return (readOnly ? TRANSIENT : NEVER_RAN).some((t) => m.includes(t));
+  return (readOnly ? [...TRANSIENT, TIMED_OUT] : NEVER_RAN).some((t) => m.includes(t));
+}
+
+function withTimeout<T>(attempt: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${TIMED_OUT} after ${ms / 1000} s`)), ms);
+  });
+  return Promise.race([attempt, late]).finally(() => clearTimeout(timer));
 }
 
 /** Whether a statement only reads: it starts with SELECT, WITH, EXPLAIN or a PRAGMA that sets nothing, and has
@@ -43,10 +60,15 @@ export function isReadOnly(sql: string): boolean {
   return /^(select|with|explain)\b/i.test(s) && !/\b(insert|update|delete|replace|create|drop|alter)\b/i.test(s);
 }
 
-export async function withRetry<T>(run: () => Promise<T>, readOnly: boolean, waits: number[] = WAITS): Promise<T> {
+export async function withRetry<T>(
+  run: () => Promise<T>,
+  readOnly: boolean,
+  waits: number[] = WAITS,
+  timeout: number = readOnly ? READ_TIMEOUT : WRITE_TIMEOUT,
+): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     try {
-      return await run();
+      return await withTimeout(run(), timeout);
     } catch (err) {
       if (attempt >= waits.length || !shouldRetry(err, readOnly)) throw err;
       await new Promise((r) => setTimeout(r, waits[attempt] * (0.75 + Math.random() * 0.5)));

@@ -36,6 +36,7 @@ describe("shouldRetry", () => {
 
   it("recognizes transient errors", () => {
     expect(isTransientD1Error(overloaded)).toBe(true);
+    expect(isTransientD1Error(new Error("D1 query timed out after 8 s"))).toBe(true);
     expect(isTransientD1Error(syntax)).toBe(false);
   });
 });
@@ -68,6 +69,28 @@ describe("withRetry", () => {
       ),
     ).rejects.toBe(overloaded);
     expect(calls).toBe(3);
+  });
+
+  it("retries a read that never answers", async () => {
+    let calls = 0;
+    const out = await withRetry(
+      () => (++calls === 1 ? new Promise<string>(() => {}) : Promise.resolve("ok")),
+      true,
+      [0, 0],
+      20,
+    );
+    expect(out).toBe("ok");
+    expect(calls).toBe(2);
+  });
+
+  it("times out a write that never answers, without retrying it", async () => {
+    let calls = 0;
+    const hang = () => {
+      calls++;
+      return new Promise<string>(() => {});
+    };
+    await expect(withRetry(hang, false, [0, 0], 20)).rejects.toThrow("D1 query timed out");
+    expect(calls).toBe(1);
   });
 
   it("doesn't retry errors that aren't transient", async () => {
