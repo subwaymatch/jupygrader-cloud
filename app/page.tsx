@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { DevicesMini, DuplicatesMini, FormatsMini, RubricMini, StylesMini } from "@/components/home/FeatureMinis";
 import { NotebookMock, ReviewMock, TeamMock } from "@/components/home/FeatureMocks";
+import { HeroLand, HeroWindow } from "@/components/home/Hero";
 import { HomeHeader } from "@/components/home/HomeHeader";
-import { Icon } from "@/components/ui/Icon";
+import { Icon, type IconName } from "@/components/ui/Icon";
 import { Logo } from "@/components/ui/Logo";
 import { countUsers } from "@/lib/server/accounts";
 import { currentUser } from "@/lib/server/session";
@@ -11,17 +12,20 @@ import { retentionLabel } from "@/lib/shared/constants";
 
 export const metadata = { title: { absolute: "Jupygrader · AI-assisted grading for Jupyter notebooks" } };
 
+const WORKS_WITH: [IconName, string][] = [
+  ["notebook", "Jupyter notebooks"],
+  ["code", "Python, R and other code"],
+  ["fileText", "PDF, Word and Markdown"],
+  ["archive", "A .zip of the whole class"],
+  ["link", "Canvas"],
+];
+
 const STEPS: [string, string, string][] = [
-  ["teacher", "Set up the assignment", "Add the instructions students received, a rubric (or let the AI draft one from the instructions), and an answer key if you have one."],
+  ["teacher", "Set up the assignment", "Add the instructions students received, a rubric (or let the AI draft one), and an answer key if you have one."],
   ["upload", "Drop in the files", "Notebooks, code, documents or images, or a single .zip. Exact duplicates are caught before anything is uploaded."],
   ["airplane", "Let it grade in the background", "Files are graded a few at a time. Close the tab and come back later: grading keeps going."],
   ["review", "Review and share", "Check the flagged grades, change any score, and send each student a private link to their feedback."],
 ];
-
-// The dotted path through the four steps, in a 100 × 100 box stretched over the steps. Each step's
-// picture is centered at (25 or 75, 12.5 + 25 × i), so the path passes behind every bird and crosses
-// to the other side between rows, clear of the text.
-const PATH = "M 0 3 C 10 3, 25 0, 25 12.5 C 25 30, 75 20, 75 37.5 C 75 55, 25 45, 25 62.5 C 25 80, 75 70, 75 87.5 C 75 96, 86 100, 100 98";
 
 const SPOTLIGHTS: [React.ReactNode, string, string, string[]][] = [
   [
@@ -46,11 +50,11 @@ const SPOTLIGHTS: [React.ReactNode, string, string, string[]][] = [
 
 // The first two take half the row; the other three share the next row.
 const FEATURES: [React.ReactNode, string, string][] = [
-  [<StylesMini key="st" />, "Grading styles from Completion to Strict", "Choose how generous partial credit should be, and the tone and length of the feedback."],
-  [<RubricMini key="rb" />, "Rubrics drafted for you", "Skip the rubric, paste or upload one, or let the AI itemize the points from your instructions."],
-  [<FormatsMini key="fm" />, "Instructions in any format", "Paste the instructions or upload the PDF, Word or Markdown file students received."],
-  [<DuplicatesMini key="dp" />, "Duplicates caught early", "Exact copies are skipped before upload, and near-identical work is flagged for a closer look."],
-  [<DevicesMini key="dv" />, "Works on any device", "Review grades on a laptop or a phone: the layout adapts to small screens."],
+  [<StylesMini key="st" />, "Grading styles from Completion to Strict.", "Choose how generous partial credit should be, and the tone and length of the feedback."],
+  [<RubricMini key="rb" />, "Rubrics drafted for you.", "Skip the rubric, paste or upload one, or let the AI itemize the points from your instructions."],
+  [<FormatsMini key="fm" />, "Instructions in any format.", "Paste the instructions or upload the PDF, Word or Markdown file students received."],
+  [<DuplicatesMini key="dp" />, "Duplicates caught early.", "Exact copies are skipped before upload, and near-identical work is flagged for a closer look."],
+  [<DevicesMini key="dv" />, "Works on any device.", "Review grades on a laptop or a phone: the layout adapts to small screens."],
 ];
 
 export default async function Home() {
@@ -59,24 +63,56 @@ export default async function Home() {
   const canRequest = firstRun || settings.openReg;
   const request = firstRun ? "Set up Jupygrader" : "Request an account";
 
-  const ctas = me ? (
-    <Link href="/app/courses" className="btn btn--primary home-btn">
-      Open Jupygrader
-      <Icon name="arrowRight" size={18} />
-    </Link>
-  ) : (
-    <>
-      <Link href="/login" className="btn btn--primary home-btn">
-        <Icon name="logIn" size={18} />
-        Instructor and grader sign in
+  const PRIVACY: [string, string][] = [
+    ["One file at a time", "Each file is graded on its own and identified only by its file name and a fingerprint (SHA-256 hash)."],
+    ["Deleted on schedule", `Files, scores and feedback are deleted ${retentionLabel(settings.retention)} after upload.`],
+    ["Keys kept encrypted", "API keys are stored encrypted, and only admins can change site settings."],
+    ["Course members only", "Only the people in a course can see its files and grades."],
+  ];
+
+  const FAQ: [string, string][] = [
+    [
+      "Do students need an account?",
+      "No. Each student gets a private link to a page with their score, the rubric, and their work with the feedback in place. An instructor can turn a link off or replace it at any time.",
+    ],
+    [
+      "What kinds of files can it grade?",
+      "Jupyter notebooks, code files (Python, R, Java and many more), documents (PDF, Word, Markdown and text) and images. Upload them one at a time or as a single .zip.",
+    ],
+    [
+      "Can I change a grade the AI gave?",
+      "Yes. Edit any rubric line or override the total. The AI's own score stays visible next to yours, and every change is kept in the history.",
+    ],
+    [
+      "Does it work with Canvas?",
+      "Yes. Link a course to its Canvas course, import the files students submitted, and post grades back with a comment and the file with feedback attached. Each person connects their own Canvas account, so Canvas's permissions apply.",
+    ],
+    [
+      "Which AI does it use?",
+      "The one your admin connects: any OpenAI-compatible API, or Anthropic's. The API key is stored encrypted, and only admins can change it.",
+    ],
+  ];
+
+  // The calls to action. On the hero's blue sky they're white and glassy; lower down, a glossy blue.
+  const ctas = (onSky: boolean) =>
+    me ? (
+      <Link href="/app/courses" className={"btn home-btn " + (onSky ? "home-btn--light" : "home-btn--glow")}>
+        Open Jupygrader
+        <Icon name="arrowRight" size={18} />
       </Link>
-      {canRequest && (
-        <Link href="/register" className="btn btn--outline home-btn">
-          {request}
+    ) : (
+      <>
+        <Link href="/login" className={"btn home-btn " + (onSky ? "home-btn--light" : "home-btn--glow")}>
+          <Icon name="logIn" size={18} />
+          Instructor and grader sign in
         </Link>
-      )}
-    </>
-  );
+        {canRequest && (
+          <Link href="/register" className={"btn home-btn " + (onSky ? "home-btn--glass" : "home-btn--soft")}>
+            {request}
+          </Link>
+        )}
+      </>
+    );
 
   return (
     <div className="home">
@@ -90,19 +126,20 @@ export default async function Home() {
             <a href="#features">Features</a>
             <a href="#students">For students</a>
             <a href="#privacy">Privacy</a>
+            <a href="#faq">FAQ</a>
           </nav>
           <div className="home-header__actions">
             {me ? (
-              <Link href="/app/courses" className="btn btn--primary home-btn home-btn--sm">
+              <Link href="/app/courses" className="btn home-btn home-btn--sm home-header__cta">
                 Open app
               </Link>
             ) : (
               <>
-                <Link href="/login" className="btn btn--ghost home-btn home-btn--sm">
+                <Link href="/login" className="btn home-btn home-btn--sm home-header__signin">
                   Sign in
                 </Link>
                 {canRequest && (
-                  <Link href="/register" className="btn btn--primary home-btn home-btn--sm home-header__request">
+                  <Link href="/register" className="btn home-btn home-btn--sm home-header__cta home-header__request">
                     {firstRun ? "Set up" : "Request access"}
                   </Link>
                 )}
@@ -114,17 +151,29 @@ export default async function Home() {
 
       <main>
         <section className="home-hero">
-          <div className="home-wrap home-hero__inner">
-            <div className="home-hero__copy">
+          <div className="home-hero__sky">
+            <div className="home-wrap home-hero__copy">
               <h1 className="home-h1">AI-assisted grading for Jupyter notebooks</h1>
               <p className="home-lead">
-                Upload your students&apos; notebooks and a rubric. Jupygrader reads each notebook&apos;s code, markdown and outputs, scores it against the rubric, and adds
-                feedback cells after the cells they comment on. You check the results and can change any score before sharing feedback.
+                Upload your students&apos; notebooks and a rubric. Jupygrader scores each one, adds feedback cells where they belong, and leaves the final say to you.
               </p>
-              <div className="home-ctas">{ctas}</div>
-              {!me && <p className="home-note">Students don&apos;t need an account. They get feedback through a private link.</p>}
+              <div className="home-ctas home-ctas--center">{ctas(true)}</div>
+              {!me && <p className="home-hero__note">Students don&apos;t need an account. They get feedback through a private link.</p>}
             </div>
-            <img className="home-hero__art" src="/home/hero.webp" width={1200} height={844} alt="The Jupygrader bird typing on a laptop, surrounded by checked papers" />
+          </div>
+          <HeroLand />
+          <div className="home-wrap home-hero__stage">
+            <HeroWindow />
+          </div>
+          <div className="home-wrap">
+            <ul className="home-works" aria-label="Works with">
+              {WORKS_WITH.map(([icon, label]) => (
+                <li key={label}>
+                  <Icon name={icon} size={20} />
+                  {label}
+                </li>
+              ))}
+            </ul>
           </div>
         </section>
 
@@ -134,30 +183,22 @@ export default async function Home() {
               <h2 className="home-h2">How it works</h2>
               <p className="home-sub">From rubric to feedback in four steps.</p>
             </div>
-            <div className="home-path">
-              <svg className="home-path__line" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-                <path className="home-path__glow" d={PATH} vectorEffect="non-scaling-stroke" />
-                <path className="home-path__dots" d={PATH} vectorEffect="non-scaling-stroke" />
-              </svg>
-              <ol className="home-path__steps">
-                {STEPS.map(([img, title, body], i) => (
-                  <li key={img} className={"home-path__step home-reveal" + (i % 2 ? " home-path__step--right" : "")}>
-                    <div className="home-path__art">
-                      <img src={`/home/${img}.webp`} width={220} height={220} alt="" loading="lazy" style={{ animationDelay: `${-i * 0.9}s` }} />
-                      <span className="home-path__num">{i + 1}</span>
-                    </div>
-                    <div className="home-path__text">
-                      <h3 className="home-h3">{title}</h3>
-                      <p>{body}</p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            </div>
+            <ol className="home-steps">
+              {STEPS.map(([img, title, body], i) => (
+                <li key={img} className="home-step home-reveal">
+                  <div className="home-panel home-step__art">
+                    <span className="home-step__num">{String(i + 1).padStart(2, "0")}</span>
+                    <img src={`/home/${img}.webp`} width={220} height={220} alt="" loading="lazy" style={{ animationDelay: `${-i * 0.9}s` }} />
+                  </div>
+                  <h3 className="home-h3">{title}</h3>
+                  <p>{body}</p>
+                </li>
+              ))}
+            </ol>
           </div>
         </section>
 
-        <section className="home-section home-section--tint" id="features">
+        <section className="home-section" id="features">
           <div className="home-wrap">
             <div className="home-section__head">
               <h2 className="home-h2">The busywork goes to the bird. The judgement stays with you.</h2>
@@ -165,7 +206,7 @@ export default async function Home() {
             <div className="home-spotlights">
               {SPOTLIGHTS.map(([mock, title, body, points], i) => (
                 <div key={title} className={"home-spotlight home-reveal" + (i % 2 ? " home-spotlight--flip" : "")}>
-                  <div className="home-spotlight__mock">{mock}</div>
+                  <div className="home-panel home-spotlight__mock">{mock}</div>
                   <div className="home-spotlight__copy">
                     <h3 className="home-h3 home-h3--lg">{title}</h3>
                     <p>{body}</p>
@@ -185,8 +226,9 @@ export default async function Home() {
               {FEATURES.map(([mini, title, body], i) => (
                 <div key={title} className={"home-feature home-reveal" + (i < 2 ? " home-feature--wide" : "")}>
                   {mini}
-                  <h3 className="home-h3">{title}</h3>
-                  <p>{body}</p>
+                  <div className="home-feature__text">
+                    <h3>{title}</h3> <p>{body}</p>
+                  </div>
                 </div>
               ))}
             </div>
@@ -195,7 +237,9 @@ export default async function Home() {
 
         <section className="home-section" id="students">
           <div className="home-wrap home-band">
-            <img src="/home/feedback.webp" width={360} height={348} alt="" loading="lazy" className="home-band__art" />
+            <div className="home-panel home-band__art">
+              <img src="/home/feedback.webp" width={360} height={348} alt="" loading="lazy" />
+            </div>
             <div className="home-band__copy">
               <span className="home-label">For students</span>
               <h2 className="home-h2">Feedback, not another login</h2>
@@ -208,57 +252,73 @@ export default async function Home() {
           </div>
         </section>
 
-        <section className="home-section home-section--tint" id="privacy">
+        <section className="home-section" id="privacy">
           <div className="home-wrap home-band home-band--flip">
-            <img src="/home/privacy.webp" width={360} height={337} alt="" loading="lazy" className="home-band__art" />
+            <div className="home-panel home-band__art">
+              <img src="/home/privacy.webp" width={360} height={337} alt="" loading="lazy" />
+            </div>
             <div className="home-band__copy">
               <span className="home-label">Privacy</span>
               <h2 className="home-h2">Careful with student work</h2>
-              <ul className="home-checks">
-                <li>
-                  <Icon name="checkCircle" size={20} />
-                  Each file is graded on its own and identified only by its file name and a fingerprint (SHA-256 hash).
-                </li>
-                <li>
-                  <Icon name="checkCircle" size={20} />
-                  Files, scores and feedback are deleted {retentionLabel(settings.retention)} after upload.
-                </li>
-                <li>
-                  <Icon name="checkCircle" size={20} />
-                  API keys are stored encrypted, and only admins can change site settings.
-                </li>
-                <li>
-                  <Icon name="checkCircle" size={20} />
-                  Only the people in a course can see its files and grades.
-                </li>
-              </ul>
+              <dl className="home-facts">
+                {PRIVACY.map(([title, body]) => (
+                  <div key={title} className="home-fact">
+                    <dt>{title}</dt>
+                    <dd>{body}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          </div>
+        </section>
+
+        <section className="home-section" id="faq">
+          <div className="home-wrap home-faq">
+            <h2 className="home-h2">Frequently asked questions</h2>
+            <div className="home-faq__list">
+              {FAQ.map(([q, a]) => (
+                <details key={q} className="home-faq__item">
+                  <summary>
+                    {q}
+                    <Icon name="chevronDown" size={22} />
+                  </summary>
+                  <p>{a}</p>
+                </details>
+              ))}
             </div>
           </div>
         </section>
 
         <section className="home-cta">
           <div className="home-wrap home-cta__inner">
+            <div className="home-cta__copy">
+              <h2 className="home-cta__title">
+                Ready for your next stack of notebooks?
+                <span>Let the bird take the first pass.</span>
+              </h2>
+              <div className="home-ctas">{ctas(false)}</div>
+            </div>
             <img src="/home/celebrate.webp" width={480} height={319} alt="" loading="lazy" className="home-cta__art" />
-            <h2 className="home-h2">Ready for your next stack of notebooks?</h2>
-            <div className="home-ctas home-ctas--center">{ctas}</div>
           </div>
         </section>
       </main>
 
       <footer className="home-footer">
-        <div className="home-wrap home-footer__inner">
-          <Logo size={26} />
-          <span className="home-footer__tag">AI-assisted grading for Jupyter notebooks.</span>
-          <nav className="home-footer__links" aria-label="Account">
-            {me ? (
-              <Link href="/app/courses">Open app</Link>
-            ) : (
-              <>
-                <Link href="/login">Sign in</Link>
-                {canRequest && <Link href="/register">{request}</Link>}
-              </>
-            )}
-          </nav>
+        <div className="home-wrap">
+          <div className="home-footer__inner">
+            <Logo size={26} />
+            <span className="home-footer__tag">AI-assisted grading for Jupyter notebooks.</span>
+            <nav className="home-footer__links" aria-label="Account">
+              {me ? (
+                <Link href="/app/courses">Open app</Link>
+              ) : (
+                <>
+                  <Link href="/login">Sign in</Link>
+                  {canRequest && <Link href="/register">{request}</Link>}
+                </>
+              )}
+            </nav>
+          </div>
         </div>
       </footer>
     </div>
