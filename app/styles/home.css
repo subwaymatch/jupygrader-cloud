@@ -413,46 +413,86 @@
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.65);
 }
 
-/* How it works: four steps in a row, each bird in its own panel. */
-.home-steps {
+/* How it works: four steps zigzag down the page, joined by a dotted path that runs behind each bird. */
+.home-path {
+  position: relative;
+}
+.home-path__line {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.home-path__glow,
+.home-path__dots {
+  fill: none;
+  stroke-linecap: round;
+}
+.home-path__glow {
+  stroke: var(--c-primary-50);
+  stroke-width: 22;
+}
+.home-path__dots {
+  stroke: var(--c-primary-300);
+  stroke-width: 5;
+  stroke-dasharray: 0.1 15;
+}
+.home-path__steps {
+  position: relative;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 28px;
+  grid-auto-rows: 1fr;
   margin: 0;
   padding: 0;
   list-style: none;
 }
-.home-step {
+.home-path__step {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  padding: 20px 0;
+}
+.home-path__art {
+  position: relative;
+  justify-self: center;
+}
+.home-path__art img {
+  display: block;
+  width: 220px;
+  height: 220px;
+  object-fit: contain;
+}
+.home-path__num {
+  position: absolute;
+  left: -6px;
+  top: 10px;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--c-primary);
+  color: #fff;
+  font-size: 20px;
+  font-weight: 600;
+  box-shadow: 0 0 0 6px #fff;
+}
+.home-path__text {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  max-width: 420px;
+  padding: 0 24px;
 }
-.home-step__art {
-  display: grid;
-  place-items: center;
-  aspect-ratio: 1 / 0.92;
-  margin-bottom: 14px;
-}
-.home-step__art img {
-  width: 72%;
-  height: auto;
-}
-.home-step__num {
-  position: absolute;
-  top: 14px;
-  left: 14px;
-  padding: 3px 12px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.8);
-  color: var(--hm-ink-2);
-  font-size: 17px;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-}
-.home-step p {
+.home-path__text p {
   color: var(--hm-muted);
-  font-size: 17px;
-  line-height: 1.6;
+}
+.home-path__step--right .home-path__art {
+  order: 2;
+}
+.home-path__step--right .home-path__text {
+  justify-self: end;
 }
 
 /* Feature spotlights: an animated mock-up in a panel, beside the copy */
@@ -1725,7 +1765,10 @@
     animation-duration: 22s;
     animation-direction: alternate-reverse;
   }
-  .home-step__art img {
+  .home-path__dots {
+    animation: home-march 1.4s linear infinite;
+  }
+  .home-path__art img {
     animation: home-bob 3.6s ease-in-out infinite alternate;
   }
   .home-faq__item summary .icon {
@@ -1844,6 +1887,11 @@
   }
 }
 
+@keyframes home-march {
+  to {
+    stroke-dashoffset: -30;
+  }
+}
 @keyframes home-bob {
   from {
     transform: translateY(0);
@@ -2270,10 +2318,6 @@
   .home-h1 {
     font-size: 62px;
   }
-  .home-steps {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 56px 28px;
-  }
   .home-features {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -2386,6 +2430,42 @@
     justify-self: center;
     max-width: 380px;
   }
+  /* The steps stack; a short dotted line joins each one to the next. */
+  .home-path__line {
+    display: none;
+  }
+  .home-path__steps {
+    grid-auto-rows: auto;
+    gap: 0;
+  }
+  .home-path__step,
+  .home-path__step--right {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    gap: 16px;
+    padding: 0;
+    text-align: center;
+  }
+  .home-path__step--right .home-path__art {
+    order: 0;
+  }
+  .home-path__step--right .home-path__text {
+    justify-self: center;
+  }
+  .home-path__text {
+    align-items: center;
+  }
+  .home-path__step:not(:last-child)::after {
+    content: "";
+    width: 0;
+    height: 56px;
+    margin: 12px 0;
+    border-left: 5px dotted var(--c-primary-300);
+  }
+  .home-path__art img {
+    width: 180px;
+    height: 180px;
+  }
 }
 @media (max-width: 560px) {
   .home-wrap {
@@ -2452,16 +2532,6 @@
     width: fit-content;
     margin-left: auto;
     margin-right: auto;
-  }
-  .home-steps {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 48px;
-  }
-  .home-step__art {
-    aspect-ratio: 16 / 10;
-  }
-  .home-step__art img {
-    width: 50%;
   }
   .home-band__art {
     aspect-ratio: 16 / 11;
