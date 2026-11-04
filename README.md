@@ -107,6 +107,8 @@ To serve the app on your own domain, add a [custom domain](https://developers.cl
 
 With Workers Builds connected to the repository and **Builds for Preview branches** turned on (Settings > Builds > Previews Base, Preview command `npx wrangler preview`), every push to a branch other than `main` deploys a [Worker Preview](https://developers.cloudflare.com/workers/previews/) and posts its URL on the pull request.
 
+On a new pull request, Cloudflare's comment can arrive 15 minutes or more after the pull request opens, because the branch was pushed before the pull request existed. The **Preview URL** workflow (`.github/workflows/preview-url.yml`) comments the URL as soon as the Preview is deployed, and deletes its comment when Cloudflare's arrives. It needs two repository secrets: `CLOUDFLARE_ACCOUNT_ID`, and `CLOUDFLARE_PREVIEWS_API_TOKEN`, an account API token with the **Workers Scripts Read** permission. Its clean-up job only runs once the workflow is on `main`.
+
 Previews use the staging resources in the `previews` block of `wrangler.jsonc` (the `jupygrader-preview` D1 database and the `jupygrader-preview-files` R2 bucket), never production data. To set up your own:
 
 1. Create the staging database and bucket, and put their names and the database ID in the `previews` block and in `wrangler.preview-migrations.jsonc`:

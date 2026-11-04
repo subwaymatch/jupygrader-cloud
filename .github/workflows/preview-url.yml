@@ -1,0 +1,129 @@
+# Comments a new pull request's Worker Preview URL as soon as the Preview is deployed.
+#
+# Workers Builds deploys a Preview for every push to a branch and comments its URL on the branch's
+# pull request. But a branch is pushed before its pull request exists, and Cloudflare's comment for
+# that first push can arrive 15 minutes or more after the pull request opens. Starting another build
+# doesn't help, because builds started through the API don't update Cloudflare's comment. So this
+# workflow posts the URL itself, and deletes its comment when Cloudflare's arrives.
+#
+# Needs two repository secrets (Settings > Secrets and variables > Actions):
+# - CLOUDFLARE_ACCOUNT_ID, also used by the nbconvert image workflow.
+# - CLOUDFLARE_PREVIEWS_API_TOKEN: an account API token with the "Workers Scripts Read" permission.
+#
+# The clean-up job runs from main's copy of this file, as every issue_comment workflow does, so it
+# only starts deleting comments once this file is on main.
+name: Preview URL
+
+on:
+  pull_request:
+    types: [opened]
+  issue_comment:
+    types: [created]
+
+permissions: {}
+
+env:
+  WORKER: jupygrader-cloud
+  CLOUDFLARE_BOT: cloudflare-workers-and-pages[bot]
+  MARKER: "<!-- preview-url-workflow -->"
+
+jobs:
+  post:
+    name: Comment the Preview URL
+    # Workers Builds doesn't build branches from forks, and runs for forks get no secrets.
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      pull-requests: write
+    env:
+      ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      API_TOKEN: ${{ secrets.CLOUDFLARE_PREVIEWS_API_TOKEN }}
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      PR: ${{ github.event.pull_request.number }}
+      BRANCH: ${{ github.event.pull_request.head.ref }}
+      SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Wait for the Preview and comment its URL
+        run: |
+          set -euo pipefail
+          if [ -z "$ACCOUNT_ID" ] || [ -z "$API_TOKEN" ]; then
+            echo "::error::Add the CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_PREVIEWS_API_TOKEN repository secrets (see the top of this workflow)."
+            exit 1
+          fi
+          api="https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/workers/workers/$WORKER/previews"
+          cf() { curl -sS --fail-with-body -H "Authorization: Bearer $API_TOKEN" "$@"; }
+          cloudflare_commented() {
+            [ -n "$(gh api "repos/$REPO/issues/$PR/comments" --paginate --jq '.[] | select(.user.login == env.CLOUDFLARE_BOT) | .id')" ]
+          }
+
+          # The push that created the branch deploys its Preview, usually within two minutes.
+          deployed="" url=""
+          for _ in $(seq 1 80); do
+            if cloudflare_commented; then
+              echo "Cloudflare has already commented the Preview URL."
+              exit 0
+            fi
+            preview=$(cf -G "$api" --data-urlencode "name=$BRANCH" | jq -c --arg b "$BRANCH" 'first(.result[] | select(.name == $b)) // empty')
+            if [ -n "$preview" ]; then
+              id=$(jq -r .id <<<"$preview")
+              # Deployments record the short hash of the commit they were built from.
+              if cf "$api/$id/deployments?per_page=10" | jq -e --arg sha "$SHA" \
+                'any(.result[]; (.annotations["workers/tag"] // "") as $t | $t != "" and ($sha | startswith($t)))' >/dev/null; then
+                deployed=1
+                url=$(jq -r '.urls[0] // empty' <<<"$preview")
+                break
+              fi
+            fi
+            sleep 15
+          done
+          if [ -z "$deployed" ]; then
+            echo "::warning::${SHA:0:7} wasn't deployed to its Preview within 20 minutes. The pull request's Workers Builds check shows how the build went."
+            exit 0
+          fi
+          if [ -z "$url" ]; then
+            echo "::warning::The Preview has no URL. Turn on Preview URLs under the Worker's Settings > Domains & Routes."
+            exit 0
+          fi
+
+          body=$(cat <<EOF
+          $MARKER
+          **Preview:** $url
+
+          Deployed from ${SHA:0:7}. The URL always serves the branch's latest deployment. This comment is deleted when Cloudflare's own comment arrives.
+          EOF
+          )
+          comment=$(gh api "repos/$REPO/issues/$PR/comments" -f body="$body" --jq .id)
+          echo "Commented $url."
+
+          # If Cloudflare commented just now, the clean-up job ran before this comment existed.
+          if cloudflare_commented; then
+            gh api -X DELETE "repos/$REPO/issues/comments/$comment"
+            echo "Cloudflare commented meanwhile, so this comment was deleted."
+          fi
+
+  clean-up:
+    name: Delete the Preview URL comment
+    # Cloudflare's own comment has arrived, with the same URL.
+    if: >-
+      github.event_name == 'issue_comment' && github.event.issue.pull_request &&
+      github.event.comment.user.login == 'cloudflare-workers-and-pages[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      PR: ${{ github.event.issue.number }}
+    steps:
+      - name: Delete this workflow's comment
+        run: |
+          set -euo pipefail
+          ids=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
+            --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith(env.MARKER))) | .id')
+          for id in $ids; do
+            gh api -X DELETE "repos/$REPO/issues/comments/$id"
+            echo "Deleted comment $id."
+          done
