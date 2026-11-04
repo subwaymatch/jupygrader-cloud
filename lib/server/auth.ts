@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth";
 import { APIError } from "better-auth/api";
 import { magicLink } from "better-auth/plugins";
-import { first } from "./db";
+import { db, first } from "./db";
 import { appUrl, getEnv } from "./env";
 import { sendEmail } from "./email";
 
@@ -13,7 +13,7 @@ function createAuth() {
     // Without APP_URL (Worker Previews), better-auth takes the address from each request.
     baseURL: env.APP_URL ? base : undefined,
     secret: env.BETTER_AUTH_SECRET,
-    database: env.DB,
+    database: db(),
     trustedOrigins: async (request) => [base, request ? new URL(request.url).origin : undefined],
     emailAndPassword: {
       enabled: true,
@@ -74,7 +74,12 @@ function createAuth() {
       },
     },
     advanced: {
-      database: { generateId: () => crypto.randomUUID() },
+      database: {
+        generateId: () => crypto.randomUUID(),
+        // The schema comes from migrations/, so skip better-auth's check of it. The check reads every table's
+        // layout when a Worker instance starts, which after a deploy is every instance at once.
+        validateSchema: false,
+      },
     },
   });
 }
