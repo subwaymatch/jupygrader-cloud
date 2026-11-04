@@ -28,6 +28,11 @@ const STEPS: [string, string, string][] = [
   ["review", "Review and share", "Check the flagged grades, change any score, and send each student a private link to their feedback."],
 ];
 
+// The dotted path through the four steps, in a 100 × 100 box stretched over the steps. Each step's
+// picture is centered at (25 or 75, 12.5 + 25 × i), so the path passes behind every bird and crosses
+// to the other side between rows, clear of the text.
+const PATH = "M 0 3 C 10 3, 25 0, 25 12.5 C 25 30, 75 20, 75 37.5 C 75 55, 25 45, 25 62.5 C 25 80, 75 70, 75 87.5 C 75 96, 86 100, 100 98";
+
 const SPOTLIGHTS: [React.ReactNode, string, string, string[]][] = [
   [
     <NotebookMock key="nb" />,
@@ -199,18 +204,26 @@ export default async function Home() {
               <h2 className="home-h2">How it works</h2>
               <p className="home-sub">From rubric to feedback in four steps.</p>
             </div>
-            <ol className="home-steps">
-              {STEPS.map(([img, title, body], i) => (
-                <li key={img} className="home-step home-reveal">
-                  <div className="home-panel home-step__art">
-                    <span className="home-step__num">{String(i + 1).padStart(2, "0")}</span>
-                    <img src={`/home/${img}.webp`} width={220} height={220} alt="" loading="lazy" style={{ animationDelay: `${-i * 0.9}s` }} />
-                  </div>
-                  <h3 className="home-h3">{title}</h3>
-                  <p>{body}</p>
-                </li>
-              ))}
-            </ol>
+            <div className="home-path">
+              <svg className="home-path__line" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                <path className="home-path__glow" d={PATH} vectorEffect="non-scaling-stroke" />
+                <path className="home-path__dots" d={PATH} vectorEffect="non-scaling-stroke" />
+              </svg>
+              <ol className="home-path__steps">
+                {STEPS.map(([img, title, body], i) => (
+                  <li key={img} className={"home-path__step home-reveal" + (i % 2 ? " home-path__step--right" : "")}>
+                    <div className="home-path__art">
+                      <img src={`/home/${img}.webp`} width={220} height={220} alt="" loading="lazy" style={{ animationDelay: `${-i * 0.9}s` }} />
+                      <span className="home-path__num">{i + 1}</span>
+                    </div>
+                    <div className="home-path__text">
+                      <h3 className="home-h3">{title}</h3>
+                      <p>{body}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </div>
           </div>
         </section>
 
