@@ -213,6 +213,16 @@ test/                   unit tests (Vitest)
 | `npm test` | Unit tests |
 | `npm run typecheck` | Generate binding types and type-check |
 
+## Generated images
+
+The bird illustrations in `public/home` and the mascot poses in `public/mascot` were generated with OpenAI's GPT Image 2.5 at `quality: "low"` on a transparent background, some from reference drawings through the image edit endpoint, and saved as WebP. They stay as they are and do not need regenerating.
+
+Any new pose or illustration is generated with GPT Image 2.6 (`gpt-image-2.6-sunburst` or `gpt-image-2.6-flare`, one release at one price) at `quality: "low"` with `background: "transparent"`, on the generations or the edit endpoint, and saved the same way. Three things to know about 2.6:
+
+- OpenAI's Batch API does not accept either 2.6 model (it answers `model_not_found`), so send each request synchronously.
+- At `low` it is 664 image output tokens at 1536x1024 or 1024x1536 and 824 at 1024x1024, about $0.02-0.025 an image at $30 per 1M (2.5 used 158 and 196). An edit also pays for the reference as image input.
+- A subject comes back at alpha 254, not 255, so count 250 and above as opaque when checking a cut-out.
+
 ## Not included yet
 
 The design prototype also covers an admin "view as" mode, which isn't implemented here.
