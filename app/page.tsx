@@ -1,9 +1,11 @@
 import Link from "next/link";
-import { DevicesMini, DuplicatesMini, FormatsMini, RubricMini, StylesMini } from "@/components/home/FeatureMinis";
+import { AnimatedArt } from "@/components/home/AnimatedArt";
+import { DuplicatesMini, FormatsMini, RubricMini, StylesMini } from "@/components/home/FeatureMinis";
+import { CanvasIcon, FileIcon, FileStackIcon, JupyterIcon, PythonIcon } from "@/components/home/FormatIcons";
 import { NotebookMock, ReviewMock, TeamMock } from "@/components/home/FeatureMocks";
 import { HeroLand, HeroWindow } from "@/components/home/Hero";
 import { HomeHeader } from "@/components/home/HomeHeader";
-import { Icon, type IconName } from "@/components/ui/Icon";
+import { Icon } from "@/components/ui/Icon";
 import { Logo } from "@/components/ui/Logo";
 import { countUsers } from "@/lib/server/accounts";
 import { isTransientD1Error } from "@/lib/server/d1-retry";
@@ -13,13 +15,17 @@ import { retentionLabel } from "@/lib/shared/constants";
 
 export const metadata = { title: { absolute: "Jupygrader · AI-assisted grading for Jupyter notebooks" } };
 
-const WORKS_WITH: [IconName, string][] = [
-  ["notebook", "Jupyter notebooks"],
-  ["code", "Python, R and other code"],
-  ["fileText", "PDF, Word and Markdown"],
-  ["archive", "A .zip of the whole class"],
-  ["link", "Canvas"],
+const WORKS_WITH: [React.ReactNode, string][] = [
+  [<JupyterIcon key="jp" size={26} />, "Jupyter notebooks"],
+  [<PythonIcon key="py" size={26} />, "Python, R and other code"],
+  [<FileStackIcon key="fs" size={28} />, "PDF, Word and Markdown"],
+  [<FileIcon key="zp" kind="zip" size={28} />, "A .zip of the whole class"],
+  [<CanvasIcon key="cv" size={26} />, "Canvas"],
 ];
+
+// The carousel shows the list four times in a row and slides it left by two copies' length, then starts over, so
+// the loop has no seam however wide the window. Only the first copy is read out.
+const WORKS_COPIES = [0, 1, 2, 3];
 
 const STEPS: [string, string, string][] = [
   ["teacher", "Set up the assignment", "Add the instructions students received, a rubric (or let the AI draft one), and an answer key if you have one."],
@@ -54,13 +60,12 @@ const SPOTLIGHTS: [React.ReactNode, string, string, string[]][] = [
   ],
 ];
 
-// The first two take half the row; the other three share the next row.
+// Two to a row.
 const FEATURES: [React.ReactNode, string, string][] = [
   [<StylesMini key="st" />, "Grading styles from Completion to Strict.", "Choose how generous partial credit should be, and the tone and length of the feedback."],
   [<RubricMini key="rb" />, "Rubrics drafted for you.", "Skip the rubric, paste or upload one, or let the AI itemize the points from your instructions."],
   [<FormatsMini key="fm" />, "Instructions in any format.", "Paste the instructions or upload the PDF, Word or Markdown file students received."],
   [<DuplicatesMini key="dp" />, "Duplicates caught early.", "Exact copies are skipped before upload, and near-identical work is flagged for a closer look."],
-  [<DevicesMini key="dv" />, "Works on any device.", "Review grades on a laptop or a phone: the layout adapts to small screens."],
 ];
 
 /** The value of a database read, or the fallback if the database is briefly unavailable even after retries. */
@@ -179,7 +184,6 @@ export default async function Home() {
                 Upload your students&apos; notebooks and a rubric. Jupygrader scores each one, adds feedback cells where they belong, and leaves the final say to you.
               </p>
               <div className="home-ctas home-ctas--center">{ctas(true)}</div>
-              {!me && <p className="home-hero__note">Students don&apos;t need an account. They get feedback through a private link.</p>}
             </div>
           </div>
           <HeroLand />
@@ -187,14 +191,20 @@ export default async function Home() {
             <HeroWindow />
           </div>
           <div className="home-wrap">
-            <ul className="home-works" aria-label="Works with">
-              {WORKS_WITH.map(([icon, label]) => (
-                <li key={label}>
-                  <Icon name={icon} size={20} />
-                  {label}
-                </li>
-              ))}
-            </ul>
+            <div className="home-works">
+              <div className="home-works__track">
+                {WORKS_COPIES.map((copy) => (
+                  <ul key={copy} className="home-works__set" aria-label={copy ? undefined : "Works with"} aria-hidden={copy ? true : undefined}>
+                    {WORKS_WITH.map(([icon, label]) => (
+                      <li key={label}>
+                        {icon}
+                        {label}
+                      </li>
+                    ))}
+                  </ul>
+                ))}
+              </div>
+            </div>
           </div>
         </section>
 
@@ -213,7 +223,7 @@ export default async function Home() {
                 {STEPS.map(([img, title, body], i) => (
                   <li key={img} className={"home-path__step home-reveal" + (i % 2 ? " home-path__step--right" : "")}>
                     <div className="home-path__art">
-                      <img src={`/home/${img}.webp`} width={220} height={220} alt="" loading="lazy" style={{ animationDelay: `${-i * 0.9}s` }} />
+                      <AnimatedArt name={img} still={`/home/${img}.webp`} width={220} height={220} lazy />
                       <span className="home-path__num">{i + 1}</span>
                     </div>
                     <div className="home-path__text">
@@ -252,8 +262,8 @@ export default async function Home() {
               ))}
             </div>
             <div className="home-features">
-              {FEATURES.map(([mini, title, body], i) => (
-                <div key={title} className={"home-feature home-reveal" + (i < 2 ? " home-feature--wide" : "")}>
+              {FEATURES.map(([mini, title, body]) => (
+                <div key={title} className="home-feature home-reveal">
                   {mini}
                   <div className="home-feature__text">
                     <h3>{title}</h3> <p>{body}</p>
@@ -267,7 +277,7 @@ export default async function Home() {
         <section className="home-section" id="students">
           <div className="home-wrap home-band">
             <div className="home-panel home-band__art">
-              <img src="/home/feedback.webp" width={360} height={348} alt="" loading="lazy" />
+              <AnimatedArt name="feedback" still="/home/feedback.webp" width={360} height={348} lazy />
             </div>
             <div className="home-band__copy">
               <span className="home-label">For students</span>
@@ -284,7 +294,7 @@ export default async function Home() {
         <section className="home-section" id="privacy">
           <div className="home-wrap home-band home-band--flip">
             <div className="home-panel home-band__art">
-              <img src="/home/privacy.webp" width={360} height={337} alt="" loading="lazy" />
+              <AnimatedArt name="privacy" still="/home/privacy.webp" width={360} height={337} lazy />
             </div>
             <div className="home-band__copy">
               <span className="home-label">Privacy</span>
@@ -326,8 +336,9 @@ export default async function Home() {
                 <span>Let the bird take the first pass.</span>
               </h2>
               <div className="home-ctas">{ctas(false)}</div>
+              {!me && <p className="home-cta__note">Students don&apos;t need an account. They get feedback through a private link.</p>}
             </div>
-            <img src="/home/celebrate.webp" width={480} height={319} alt="" loading="lazy" className="home-cta__art" />
+            <AnimatedArt name="celebrate" still="/home/celebrate.webp" width={480} height={319} lazy className="home-cta__art" />
           </div>
         </section>
       </main>

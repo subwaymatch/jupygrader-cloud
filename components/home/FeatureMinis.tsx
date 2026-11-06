@@ -1,3 +1,4 @@
+import { type FileKind, FileIcon } from "@/components/home/FormatIcons";
 import { Icon } from "@/components/ui/Icon";
 
 /*
@@ -110,10 +111,10 @@ export function RubricMini() {
   );
 }
 
-const FORMATS: [string, string][] = [
-  ["PDF", "hw2_instructions.pdf"],
-  ["DOCX", "hw2_instructions.docx"],
-  ["MD", "hw2_instructions.md"],
+const FORMATS: [FileKind, string][] = [
+  ["pdf", "hw2_instructions.pdf"],
+  ["docx", "hw2_instructions.docx"],
+  ["md", "hw2_instructions.md"],
 ];
 
 /** A PDF, a Word file and a Markdown file each become the same instructions. */
@@ -125,7 +126,7 @@ export function FormatsMini() {
           <span className="mk-stack">
             {FORMATS.map(([kind, name], i) => (
               <span key={kind} className={"ffm__file mk-turn3" + (i === 0 ? " mk-rest" : "")} style={{ "--i": i } as Vars}>
-                <span className={"ffm__badge ffm__badge--" + kind.toLowerCase()}>{kind}</span>
+                <FileIcon kind={kind} size={30} />
                 {name}
               </span>
             ))}
@@ -189,50 +190,6 @@ export function DuplicatesMini() {
               Close match
             </span>
           </span>
-        </div>
-      </div>
-    </Stage>
-  );
-}
-
-const SCREEN_ROWS: [string, string][] = [
-  ["alice_hw2.ipynb", "18 / 20"],
-  ["bob_hw2.ipynb", "16 / 20"],
-  ["carol_hw2.ipynb", "12 / 20"],
-];
-
-/** A submissions page narrowing from laptop width to phone width; its layout adapts as it goes. */
-export function DevicesMini() {
-  return (
-    <Stage loop={8} cycle={false}>
-      <div className="fvm">
-        <div className="fvm__device">
-          <div className="fvm__screen">
-            <div className="fvm__bar">
-              <img src="/logo.svg" width={14} height={14} alt="" />
-              <span className="fvm__title">HW 2</span>
-              <Icon name="menu" size={14} className="fvm__menu" />
-            </div>
-            <div className="fvm__body">
-              <div className="fvm__side">
-                <i />
-                <i />
-                <i />
-                <i />
-              </div>
-              <div className="fvm__list">
-                {SCREEN_ROWS.map(([name, score]) => (
-                  <div key={name} className="fvm__row">
-                    <span className="fvm__name">
-                      <Icon name="notebook" size={13} />
-                      <span>{name}</span>
-                    </span>
-                    <span className="fvm__score">{score}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </Stage>

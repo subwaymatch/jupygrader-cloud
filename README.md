@@ -223,6 +223,12 @@ Any new pose or illustration is generated with GPT Image 2.6 (`gpt-image-2.6-sun
 - At `low` it is 664 image output tokens at 1536x1024 or 1024x1536 and 824 at 1024x1024, about $0.02-0.025 an image at $30 per 1M (2.5 used 158 and 196). An edit also pays for the reference as image input.
 - A subject comes back at alpha 254, not 255, so count 250 and above as opaque when checking a cut-out.
 
+2.6 can also return an animated GIF (`output_format: "gif"`, with `frame_count` and `frame_duration_ms`). Every bird on the home page moves this way: `public/home/animated` holds a looping animated WebP for each one, shown through `components/home/AnimatedArt.tsx`, and visitors who prefer reduced motion see the still instead. Each was made by sending its still (from `public/mascot` or `public/home`) to the edit endpoint with a short description of the motion, using `gpt-image-2.6-sunburst`, `quality: "low"`, `background: "transparent"`, `frame_count: 8` and `complexity: "low"`. The frame `size` matched the still's aspect ratio in multiples of 16: `512x512` for the mascot poses, up to `960x640` for `celebrate`. Then:
+
+- A GIF's transparency is all or nothing, so the frames were scaled down (premultiplied, which softens the edges) to about 1.5 times the largest size the bird is shown at, at the still's exact aspect ratio, and saved as WebP at quality 80.
+- Calm loops (blinks, nods) hold their first frame, which matches the still, for 0.6 to 1.4 seconds before playing the rest; continuous motion (flapping, confetti, falling paper) plays evenly at 110 to 120 ms a frame.
+- A 512x512 GIF of 8 frames was 555 image output tokens, and `960x640` was 1,395. With the reference image as input, each cost $0.02 to $0.06, and the twelve about $0.32. The WebPs come to about 1.4 MB, and all but the hero's two load lazily.
+
 ## Not included yet
 
 The design prototype also covers an admin "view as" mode, which isn't implemented here.

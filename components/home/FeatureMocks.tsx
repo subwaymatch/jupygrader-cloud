@@ -1,16 +1,17 @@
+import { AnimatedArt } from "@/components/home/AnimatedArt";
 import { Icon } from "@/components/ui/Icon";
-import { Mascot, type Pose } from "@/components/ui/Mascot";
 
 /*
  * Small animated mock-ups of the app for the home page. They are decorative (the copy next to them says the same
- * thing), use CSS animations only, and show their finished state when the visitor prefers reduced motion.
+ * thing), use CSS animations only, and show their finished state when the visitor prefers reduced motion. The bird
+ * on each window is an animated image (AnimatedArt), still when motion is reduced.
  * Class names: mk-in-N appears at N% of the loop, mk-from/mk-to-N swap at N%, mk-type types its text.
  */
 
-function Window({ title, pose, children }: { title: string; pose: Pose; children: React.ReactNode }) {
+function Window({ title, pose, children }: { title: string; pose: "reading" | "magnifier" | "waving"; children: React.ReactNode }) {
   return (
     <div className="mock" aria-hidden="true">
-      <Mascot pose={pose} size={112} className="mock__bird" />
+      <AnimatedArt name={pose} still={`/mascot/${pose}.webp`} width={112} height={112} className="mascot mock__bird" />
       <div className="mock__bar">
         <span className="mock__dots">
           <i />
