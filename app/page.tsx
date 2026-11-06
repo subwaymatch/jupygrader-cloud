@@ -184,7 +184,6 @@ export default async function Home() {
                 Upload your students&apos; notebooks and a rubric. Jupygrader scores each one, adds feedback cells where they belong, and leaves the final say to you.
               </p>
               <div className="home-ctas home-ctas--center">{ctas(true)}</div>
-              {!me && <p className="home-hero__note">Students don&apos;t need an account. They get feedback through a private link.</p>}
             </div>
           </div>
           <HeroLand />
@@ -337,6 +336,7 @@ export default async function Home() {
                 <span>Let the bird take the first pass.</span>
               </h2>
               <div className="home-ctas">{ctas(false)}</div>
+              {!me && <p className="home-cta__note">Students don&apos;t need an account. They get feedback through a private link.</p>}
             </div>
             <AnimatedArt name="celebrate" still="/home/celebrate.webp" width={480} height={319} lazy className="home-cta__art" />
           </div>

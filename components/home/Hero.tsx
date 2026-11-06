@@ -49,7 +49,7 @@ const DOTS = POINTS.map(([x, y]) => `M${x} ${y}h0`).join("");
 export function HeroWindow() {
   return (
     <div className="hwin" aria-hidden="true">
-      <AnimatedArt name="peeking" still="/mascot/peeking.webp" width={150} height={150} className="mascot hwin__bird" />
+      <AnimatedArt name="peeking" still="/mascot/peeking.webp" width={112} height={112} className="mascot hwin__bird" />
       <div className="hwin__bar">
         <span className="mock__dots">
           <i />
