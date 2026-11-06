@@ -28,6 +28,14 @@
 .home p {
   line-height: 1.65;
 }
+/* The birds are animated images in picture elements (AnimatedArt) that lay out as if they weren't there, so each
+   image keeps the place and styles a plain img would have. The source element would otherwise take a grid cell. */
+.home picture {
+  display: contents;
+}
+.home picture > source {
+  display: none;
+}
 
 /* Header: fixed to the top of the window. Over the hero it's transparent with white type; once the page is
    scrolled it turns white and gets shorter, with smaller type (home-header--compact, set by HomeHeader). */
@@ -1677,9 +1685,6 @@
   .home-path__dots {
     animation: home-march 1.4s linear infinite;
   }
-  .home-path__art img {
-    animation: home-bob 3.6s ease-in-out infinite alternate;
-  }
   .home-faq__item summary .icon {
     transition: transform 0.2s ease;
   }
@@ -1793,14 +1798,6 @@
 @keyframes home-march {
   to {
     stroke-dashoffset: -30;
-  }
-}
-@keyframes home-bob {
-  from {
-    transform: translateY(0);
-  }
-  to {
-    transform: translateY(-10px);
   }
 }
 @keyframes home-reveal {

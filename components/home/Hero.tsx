@@ -1,5 +1,5 @@
+import { AnimatedArt } from "@/components/home/AnimatedArt";
 import { Icon } from "@/components/ui/Icon";
-import { Mascot } from "@/components/ui/Mascot";
 
 /*
  * The home page hero's picture: a morning sky over soft hills, and a window of the feedback page rising out of
@@ -20,11 +20,7 @@ export function HeroLand() {
       <span className="home-hero__sun" />
       <span className="home-hero__haze home-hero__haze--1" />
       <span className="home-hero__haze home-hero__haze--2" />
-      {/* The bird flaps its wings (an animated WebP); visitors who prefer reduced motion get the still pose. */}
-      <picture>
-        <source srcSet="/home/flying.webp" media="(prefers-reduced-motion: no-preference)" type="image/webp" />
-        <img className="home-hero__flyer" src="/mascot/flying.webp" width={192} height={192} alt="" />
-      </picture>
+      <AnimatedArt name="flying" still="/mascot/flying.webp" width={192} height={192} className="home-hero__flyer" />
       <svg className="home-hero__hills" viewBox="0 0 1440 360" preserveAspectRatio="none">
         {RIDGES.map((d, i) => (
           <path key={i} d={d} className={`home-hero__ridge home-hero__ridge--${i + 1}`} />
@@ -53,7 +49,7 @@ const DOTS = POINTS.map(([x, y]) => `M${x} ${y}h0`).join("");
 export function HeroWindow() {
   return (
     <div className="hwin" aria-hidden="true">
-      <Mascot pose="peeking" size={150} className="hwin__bird" />
+      <AnimatedArt name="peeking" still="/mascot/peeking.webp" width={150} height={150} className="mascot hwin__bird" />
       <div className="hwin__bar">
         <span className="mock__dots">
           <i />

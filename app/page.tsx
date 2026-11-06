@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AnimatedArt } from "@/components/home/AnimatedArt";
 import { DuplicatesMini, FormatsMini, RubricMini, StylesMini } from "@/components/home/FeatureMinis";
 import { CanvasIcon, FileIcon, FileStackIcon, JupyterIcon, PythonIcon } from "@/components/home/FormatIcons";
 import { NotebookMock, ReviewMock, TeamMock } from "@/components/home/FeatureMocks";
@@ -223,7 +224,7 @@ export default async function Home() {
                 {STEPS.map(([img, title, body], i) => (
                   <li key={img} className={"home-path__step home-reveal" + (i % 2 ? " home-path__step--right" : "")}>
                     <div className="home-path__art">
-                      <img src={`/home/${img}.webp`} width={220} height={220} alt="" loading="lazy" style={{ animationDelay: `${-i * 0.9}s` }} />
+                      <AnimatedArt name={img} still={`/home/${img}.webp`} width={220} height={220} lazy />
                       <span className="home-path__num">{i + 1}</span>
                     </div>
                     <div className="home-path__text">
@@ -277,7 +278,7 @@ export default async function Home() {
         <section className="home-section" id="students">
           <div className="home-wrap home-band">
             <div className="home-panel home-band__art">
-              <img src="/home/feedback.webp" width={360} height={348} alt="" loading="lazy" />
+              <AnimatedArt name="feedback" still="/home/feedback.webp" width={360} height={348} lazy />
             </div>
             <div className="home-band__copy">
               <span className="home-label">For students</span>
@@ -294,7 +295,7 @@ export default async function Home() {
         <section className="home-section" id="privacy">
           <div className="home-wrap home-band home-band--flip">
             <div className="home-panel home-band__art">
-              <img src="/home/privacy.webp" width={360} height={337} alt="" loading="lazy" />
+              <AnimatedArt name="privacy" still="/home/privacy.webp" width={360} height={337} lazy />
             </div>
             <div className="home-band__copy">
               <span className="home-label">Privacy</span>
@@ -337,7 +338,7 @@ export default async function Home() {
               </h2>
               <div className="home-ctas">{ctas(false)}</div>
             </div>
-            <img src="/home/celebrate.webp" width={480} height={319} alt="" loading="lazy" className="home-cta__art" />
+            <AnimatedArt name="celebrate" still="/home/celebrate.webp" width={480} height={319} lazy className="home-cta__art" />
           </div>
         </section>
       </main>
