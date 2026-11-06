@@ -20,7 +20,11 @@ export function HeroLand() {
       <span className="home-hero__sun" />
       <span className="home-hero__haze home-hero__haze--1" />
       <span className="home-hero__haze home-hero__haze--2" />
-      <img className="home-hero__flyer" src="/mascot/flying.webp" width={384} height={384} alt="" />
+      {/* The bird flaps its wings (an animated WebP); visitors who prefer reduced motion get the still pose. */}
+      <picture>
+        <source srcSet="/home/flying.webp" media="(prefers-reduced-motion: no-preference)" type="image/webp" />
+        <img className="home-hero__flyer" src="/mascot/flying.webp" width={192} height={192} alt="" />
+      </picture>
       <svg className="home-hero__hills" viewBox="0 0 1440 360" preserveAspectRatio="none">
         {RIDGES.map((d, i) => (
           <path key={i} d={d} className={`home-hero__ridge home-hero__ridge--${i + 1}`} />

@@ -223,6 +223,8 @@ Any new pose or illustration is generated with GPT Image 2.6 (`gpt-image-2.6-sun
 - At `low` it is 664 image output tokens at 1536x1024 or 1024x1536 and 824 at 1024x1024, about $0.02-0.025 an image at $30 per 1M (2.5 used 158 and 196). An edit also pays for the reference as image input.
 - A subject comes back at alpha 254, not 255, so count 250 and above as opaque when checking a cut-out.
 
+2.6 can also return an animated GIF (`output_format: "gif"`, with `frame_count` and `frame_duration_ms`). The flapping bird in the home page's hero, `public/home/flying.webp`, was made that way: the still `public/mascot/flying.webp` sent to the edit endpoint with `gpt-image-2.6-sunburst`, `quality: "low"`, `background: "transparent"`, `size: "512x512"`, `frame_count: 8`, `frame_duration_ms: 80` and `complexity: "low"` (555 image output tokens). A GIF's transparency is all or nothing, so the frames were scaled down to 192 px (which softens the edges) and saved as a looping animated WebP. Visitors who prefer reduced motion see the still pose instead.
+
 ## Not included yet
 
 The design prototype also covers an admin "view as" mode, which isn't implemented here.
