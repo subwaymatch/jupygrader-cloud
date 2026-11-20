@@ -68,6 +68,14 @@ export function fmtScore(n: number | null | undefined): string {
   return String(Math.round(n * 2) / 2);
 }
 
+/** A score someone typed, as a number, or null when the field is empty or isn't a number. An empty field is not a 0. */
+export function parseScore(value: unknown): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value !== "string" || !value.trim()) return null;
+  const n = Number(value.trim());
+  return Number.isFinite(n) ? n : null;
+}
+
 export function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }

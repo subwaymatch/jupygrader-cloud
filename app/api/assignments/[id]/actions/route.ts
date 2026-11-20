@@ -1,6 +1,6 @@
 import { requireAssignment, type SubmissionRow } from "@/lib/server/access";
 import { logActivity } from "@/lib/server/activity";
-import { all, inList, parseJson, run } from "@/lib/server/db";
+import { allIn, parseJson, run, runIn } from "@/lib/server/db";
 import { enqueueGrading } from "@/lib/server/grading";
 import { badRequest, handle, readJson } from "@/lib/server/http";
 import { newId } from "@/lib/server/ids";
@@ -17,15 +17,15 @@ export const POST = handle(async (req: Request, ctx: { params: Promise<{ id: str
   const { id } = await ctx.params;
   const { asg, course } = await requireAssignment(me, id, "grade", true);
   const { action, ids } = await readJson<{ action?: Action; ids?: string[] }>(req);
-  if (!ids?.length) throw badRequest("Select at least one file.");
-  const rows = await all<SubmissionRow>(`select * from submission where assignment_id = ? and id in (${inList(ids.length)})`, id, ...ids);
+  if (!Array.isArray(ids) || !ids.length || ids.some((x) => typeof x !== "string")) throw badRequest("Select at least one file.");
+  const rows = await allIn<SubmissionRow>((q) => `select * from submission where assignment_id = ? and id in (${q})`, [id], [...new Set(ids)]);
   const now = new Date().toISOString();
 
   if (action === "remove") {
     const list = rows.filter((r) => r.status !== "grading");
     if (!list.length) return Response.json({ count: 0 });
     await deleteFiles(list.flatMap((r) => submissionKeys(r.r2_key)));
-    await run(`delete from submission where id in (${inList(list.length)})`, ...list.map((r) => r.id));
+    await runIn((q) => `delete from submission where id in (${q})`, [], list.map((r) => r.id));
     await logActivity({
       type: "grading",
       user: me,

@@ -204,31 +204,37 @@ export function SubmissionsTab({
     let done = 0;
     let failed = 0;
     const queueList = [...keys];
+    // The last file goes on its own once the others are in, marked so the server records the whole upload once, with its real count.
+    const finalJob = queueList.pop();
+    const send = async (job: (typeof keys)[number], last: boolean) => {
+      const form = new FormData();
+      form.set("file", job.f.file, job.f.name);
+      form.set("batchId", batchId);
+      form.set("regradeDuplicates", regrade ? "1" : "0");
+      if (last) {
+        form.set("last", "1");
+        form.set("count", String(done + 1));
+      }
+      try {
+        const r = await api<{ item: SubmissionListItem }>(`/api/assignments/${asg.id}/submissions`, { body: form });
+        list.upsert(r.item);
+        setPending((p) => p.filter((x) => x.key !== job.key));
+        done++;
+      } catch (err) {
+        failed++;
+        setPending((p) => p.map((x) => (x.key === job.key ? { ...x, error: errorMessage(err) } : x)));
+      }
+      list.setUploading(files.length - done - failed);
+    };
     const worker = async () => {
       for (;;) {
         const job = queueList.shift();
         if (!job) return;
-        const form = new FormData();
-        form.set("file", job.f.file, job.f.name);
-        form.set("batchId", batchId);
-        form.set("regradeDuplicates", regrade ? "1" : "0");
-        if (done + failed === files.length - 1) {
-          form.set("last", "1");
-          form.set("count", String(files.length));
-        }
-        try {
-          const r = await api<{ item: SubmissionListItem }>(`/api/assignments/${asg.id}/submissions`, { body: form });
-          list.upsert(r.item);
-          setPending((p) => p.filter((x) => x.key !== job.key));
-          done++;
-        } catch (err) {
-          failed++;
-          setPending((p) => p.map((x) => (x.key === job.key ? { ...x, error: errorMessage(err) } : x)));
-        }
-        list.setUploading(files.length - done - failed);
+        await send(job, false);
       }
     };
     await Promise.all([worker(), worker(), worker()]);
+    if (finalJob) await send(finalJob, true);
     list.setUploading(0);
     await list.refresh();
     toast(failed ? `${done} uploaded, ${failed} failed` : `${plural(done, "file")} uploaded`, failed ? { error: true } : {});

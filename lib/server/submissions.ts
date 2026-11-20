@@ -265,21 +265,14 @@ export async function storedNotebookHtml(row: SubmissionRow, asg: AssignmentRow)
  * and stores the HTML next to the file. Null when the file isn't a graded notebook or nbconvert
  * isn't available; callers then use buildDownload's built-in HTML.
  */
-export async function renderNotebookHtml(row: SubmissionRow, asg: AssignmentRow): Promise<Uint8Array | null> {
+export async function renderNotebookHtml(row: SubmissionRow, asg: AssignmentRow, timeoutMs?: number): Promise<Uint8Array | null> {
   const result = parseJson<GradeResult | null>(row.result, null);
   if (!rendersHtml(row) || !result || !hasNbconvert()) return null;
   const doc = await submissionDoc(row);
   if (doc.type !== "notebook") return null;
   const fp = await notebookHtmlFingerprint(row, asg);
-  const stream = await nbconvertHtml(htmlNotebook(doc, result, feedbackHeader(row, asg)), `${asg.title}: ${row.file_name}`);
-  if (!stream) return null;
-  let html: Uint8Array;
-  try {
-    html = new Uint8Array(await new Response(stream).arrayBuffer());
-  } catch (err) {
-    console.error("nbconvert response failed", row.id, err);
-    return null;
-  }
+  const html = await nbconvertHtml(htmlNotebook(doc, result, feedbackHeader(row, asg)), `${asg.title}: ${row.file_name}`, timeoutMs);
+  if (!html) return null;
   await putFile(notebookHtmlKey(row.r2_key!), html, "text/html; charset=utf-8", { fp });
   return html;
 }

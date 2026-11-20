@@ -19,14 +19,15 @@ import type { AiDefaults } from "@/components/assignments/Fields";
 import { CanvasMenu, type CanvasContext } from "./CanvasMenu";
 import { InstructionsTab, RubricTab, SettingsTab } from "./EditTabs";
 import { SubmissionsTab } from "./SubmissionsTab";
+import { browserNotifyOn } from "@/lib/client/notify";
 import { useSubmissions, type ListResponse } from "./useSubmissions";
 
 type Tab = "submissions" | "instructions" | "rubric" | "settings";
 
 function notifyDone(title: string, items: SubmissionListItem[]) {
   try {
-    if (localStorage.getItem("jg-browser-notify") !== "1" || typeof Notification === "undefined" || Notification.permission !== "granted") return;
-    if (document.visibilityState === "visible") return;
+    // Only when the page is in the background; useSubmissions keeps checking there while this is on.
+    if (!browserNotifyOn() || document.visibilityState === "visible") return;
     const graded = items.filter((s) => s.status === "graded").length;
     const failed = items.filter((s) => s.status === "failed").length;
     new Notification(`Grading finished: ${title}`, { body: `${graded} graded${failed ? `, ${failed} failed` : ""}.`, icon: "/icon-192.png" });

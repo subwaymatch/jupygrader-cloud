@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { courseSpanLabel, courseTermLabel } from "@/lib/shared/format";
+import { courseSpanLabel, courseTermLabel, parseScore } from "@/lib/shared/format";
 
 describe("course date labels", () => {
   it("shortens the start date when both dates are in the same year", () => {
@@ -25,5 +25,23 @@ describe("course date labels", () => {
     expect(courseTermLabel("2027-01-12", "2027-05-01", false, "2026-10-30")).toBe("Starts Jan 12, 2027");
     expect(courseTermLabel("2026-01-12", "2026-05-01", false, "2026-10-30")).toBeNull();
     expect(courseTermLabel(null, "2027-05-01", true, "2026-10-30")).toBeNull();
+  });
+});
+
+describe("parseScore", () => {
+  it("reads numbers and numbers typed as text", () => {
+    expect(parseScore(0)).toBe(0);
+    expect(parseScore("0")).toBe(0);
+    expect(parseScore(" 17.5 ")).toBe(17.5);
+  });
+
+  it("doesn't turn an empty or invalid field into 0", () => {
+    expect(parseScore("")).toBeNull();
+    expect(parseScore("   ")).toBeNull();
+    expect(parseScore("abc")).toBeNull();
+    expect(parseScore(null)).toBeNull();
+    expect(parseScore(undefined)).toBeNull();
+    expect(parseScore(NaN)).toBeNull();
+    expect(parseScore(Infinity)).toBeNull();
   });
 });

@@ -7,7 +7,7 @@ import { newShareToken } from "@/lib/server/ids";
 import { requireUser } from "@/lib/server/session";
 import { getSettings } from "@/lib/server/settings";
 import { toDetail } from "@/lib/server/submissions";
-import { fmtScore } from "@/lib/shared/format";
+import { fmtScore, parseScore } from "@/lib/shared/format";
 import type { GradeResult, HistoryEntry } from "@/lib/shared/types";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -58,7 +58,9 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
       const result = parseJson<GradeResult | null>(sub.result, null);
       const c = result?.criteria[body.index];
       if (!result || !c) throw badRequest("That rubric line doesn't exist.");
-      const earned = half(Number(body.earned));
+      // An empty field isn't a 0.
+      const typed = parseScore(body.earned);
+      const earned = typed === null ? NaN : half(typed);
       if (!(earned >= 0 && earned <= c.pts)) throw badRequest(`Enter a score from 0 to ${c.pts}.`);
       const old = c.earned;
       c.earned = earned;
@@ -84,7 +86,9 @@ export const PATCH = handle(async (req: Request, ctx: Ctx) => {
       if (sub.status !== "graded") throw badRequest("Only graded files have a score.");
       const result = parseJson<GradeResult | null>(sub.result, null);
       const sum = result ? scoreFrom(result.criteria, asg.points) : sub.ai_score;
-      const score = body.score === null ? sum : half(Number(body.score));
+      // Null resets the total to the rubric sum. Anything else has to be a number: an empty field isn't a 0.
+      const typed = body.score === null ? sum : parseScore(body.score);
+      const score = typed === null ? null : half(typed);
       if (score === null || !(score >= 0 && score <= asg.points)) throw badRequest(`Enter a score from 0 to ${asg.points}.`);
       push(body.score === null ? `Reset the total to the rubric sum, ${score}` : `Changed the total from ${fmtScore(sub.score)} to ${score}`);
       await run(

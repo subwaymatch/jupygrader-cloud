@@ -88,8 +88,8 @@ export async function courseAssignments(courseId: string): Promise<AssignmentCar
   if (!asgs.length) return [];
   const stats = await all<StatusCount & { assignment_id: string }>(
     `select assignment_id, status, count(*) n, ${NEEDS_REVIEW_SQL} review
-       from submission where assignment_id in (${asgs.map(() => "?").join(",")}) group by assignment_id, status`,
-    ...asgs.map((a) => a.id),
+       from submission where assignment_id in (select id from assignment where course_id = ?) group by assignment_id, status`,
+    courseId,
   );
   return asgs.map((a) => {
     const rows = parseJson<{ name: string }[]>(a.rubric_rows, []).filter((r) => r.name?.trim());

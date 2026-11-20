@@ -16,7 +16,7 @@ import { api, copyText, downloadUrl, errorMessage } from "@/lib/client/api";
 import { announceChange, savedOrder } from "@/lib/client/sync";
 import { STATUS, STYLES } from "@/lib/shared/constants";
 import { downloadFormats, labelFor } from "@/lib/shared/document";
-import { fmtAt, fmtScore, fmtTokens, fmtUsd } from "@/lib/shared/format";
+import { fmtAt, fmtScore, fmtTokens, fmtUsd, parseScore } from "@/lib/shared/format";
 import type { SubmissionDetail } from "@/lib/shared/types";
 import { needsReview, reviewReason } from "./SubmissionsTab";
 
@@ -137,6 +137,19 @@ export function FeedbackView({
       setId(d.id);
       toast(errorMessage(err), { error: true });
     }
+  }
+
+  /** Saves the total typed into the grade field. An empty or invalid field is an error, not a 0. */
+  async function saveGrade() {
+    const score = parseScore(editGrade);
+    if (score === null) return toast(`Enter a score from 0 to ${d.points}.`, { error: true });
+    if (await patch({ action: "override", score }, "Grade changed")) setEditGrade(null);
+  }
+
+  async function saveCrit(draft: CritDraft, max: number) {
+    const earned = parseScore(draft.earned);
+    if (earned === null) return toast(`Enter a score from 0 to ${max}.`, { error: true });
+    if (await patch({ action: "criterion", index: draft.index, earned, comment: draft.comment, reason: draft.reason }, "Score changed")) setCrit(null);
   }
 
   async function patch(body: Record<string, unknown>, ok?: string) {
@@ -308,13 +321,13 @@ export function FeedbackView({
                           autoFocus
                           style={{ width: 110, fontSize: 18, height: 42 }}
                           onChange={(e) => setEditGrade(e.target.value)}
-                          onKeyDown={async (e) => {
-                            if (e.key === "Enter" && (await patch({ action: "override", score: +editGrade }, "Grade changed"))) setEditGrade(null);
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && !busy) void saveGrade();
                             if (e.key === "Escape") (e.stopPropagation(), setEditGrade(null));
                           }}
                         />
                         <span className="fb-score__of">/ {d.points}</span>
-                        <Button variant="primary" size="sm" loading={busy} onClick={async () => (await patch({ action: "override", score: +editGrade }, "Grade changed")) && setEditGrade(null)}>
+                        <Button variant="primary" size="sm" loading={busy} onClick={saveGrade}>
                           Save
                         </Button>
                         <Button variant="ghost" size="sm" onClick={() => setEditGrade(null)}>
@@ -450,9 +463,7 @@ export function FeedbackView({
                                 variant="primary"
                                 size="sm"
                                 loading={busy}
-                                onClick={async () => {
-                                  if (await patch({ action: "criterion", index: i, earned: +crit.earned, comment: crit.comment, reason: crit.reason }, "Score changed")) setCrit(null);
-                                }}
+                                onClick={() => saveCrit(crit, c.pts)}
                               >
                                 Save
                               </Button>

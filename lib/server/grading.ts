@@ -6,7 +6,7 @@ import type { Criterion, GradeResult, GradedMeta, HistoryEntry, RubricRow, Store
 import type { AssignmentRow, SubmissionRow } from "./access";
 import { logActivity } from "./activity";
 import { AiError, chatJson, type ChatMessage, type ContentPart } from "./ai";
-import { all, first, parseJson, run } from "./db";
+import { all, batch, first, parseJson, run, runIn, stmt } from "./db";
 import { sendEmail } from "./email";
 import { appUrl, getEnv } from "./env";
 import { newId } from "./ids";
@@ -257,6 +257,10 @@ export async function enqueueGrading(ids: string[]): Promise<void> {
 }
 
 const STALE_MS = 15 * 60 * 1000;
+/** How many times a file is sent to the AI before a retryable error becomes a failure. */
+const MAX_ATTEMPTS = 3;
+/** Time limit for making a notebook's HTML straight after grading. If it runs out, the feedback page makes it on the first visit. */
+const RENDER_AFTER_GRADING_MS = 45_000;
 
 export type ProcessOutcome = "done" | "failed" | "busy" | "paused" | "skip" | "retry";
 
@@ -368,13 +372,15 @@ export async function processSubmission(id: string): Promise<ProcessOutcome> {
     await recordUsage({ kind: "grade", usage, cost, model: meta.model, submissionId: id, assignmentId: asg.id, courseId: asg.course_id });
     // Make the notebook's HTML now, so downloads and the feedback page don't wait for nbconvert.
     const graded = await first<SubmissionRow>("select * from submission where id = ?", id);
-    if (graded) await renderNotebookHtml(graded, asg).catch((err) => console.error("nbconvert render failed", id, err));
+    // It's a head start, not part of grading: with a short time limit, a slow container doesn't hold this job's place in the queue.
+    if (graded) await renderNotebookHtml(graded, asg, RENDER_AFTER_GRADING_MS).catch((err) => console.error("nbconvert render failed", id, err));
     await maybeNotifyBatch(sub.batch_id);
     return "done";
   } catch (err) {
     const e = err instanceof AiError ? err : new AiError("Grading failed unexpectedly. Retry to resend.", true);
     if (!(err instanceof AiError)) console.error("grading error", id, err);
-    if (e.retryable && sub.attempts + 1 < 3) {
+    // `sub` was read after the claim counted this attempt, so attempts is the number made so far.
+    if (e.retryable && sub.attempts < MAX_ATTEMPTS) {
       await run(
         "update submission set status = 'queued', queued_at = ?, note = ? where id = ?",
         new Date().toISOString(),
@@ -475,11 +481,7 @@ export async function cronTick(): Promise<void> {
     );
     const ids = [...new Set([...stale.map((s) => s.id), ...lost.map((s) => s.id)])];
     if (ids.length) {
-      await run(
-        `update submission set queued_at = ? where id in (${ids.map(() => "?").join(",")})`,
-        new Date(now).toISOString(),
-        ...ids,
-      );
+      await runIn((q) => `update submission set queued_at = ? where id in (${q})`, [new Date(now).toISOString()], ids);
       await enqueueGrading(ids);
     }
     return;
@@ -503,17 +505,14 @@ export async function retentionSweep(settings?: SiteSettingsWithKey): Promise<nu
     );
     if (!rows.length) break;
     const now = new Date().toISOString();
-    for (const r of rows) {
-      await run(
-        "insert or ignore into retained_hash (assignment_id, sha256, file_name, deleted_at) values (?, ?, ?, ?)",
-        r.assignment_id,
-        r.sha256,
-        r.file_name,
-        now,
-      );
-    }
+    await batch(
+      rows.map((r) =>
+        stmt("insert or ignore into retained_hash (assignment_id, sha256, file_name, deleted_at) values (?, ?, ?, ?)", r.assignment_id, r.sha256, r.file_name, now),
+      ),
+    );
+    // Files first: if this stops part-way, the rows are still there, so the next sweep finishes the job.
     await deleteFiles(rows.flatMap((r) => submissionKeys(r.r2_key)));
-    await run(`delete from submission where id in (${rows.map(() => "?").join(",")})`, ...rows.map((r) => r.id));
+    await runIn((q) => `delete from submission where id in (${q})`, [], rows.map((r) => r.id));
     total += rows.length;
   }
   if (total) await logActivity({ type: "settings", text: `Deleted ${total} files past the ${s.retention}-day retention period` });

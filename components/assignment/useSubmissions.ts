@@ -2,9 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/client/api";
+import { browserNotifyOn } from "@/lib/client/notify";
 import { onChange } from "@/lib/client/sync";
 import type { QueueInfo } from "@/lib/server/queue-info";
 import type { SubmissionListItem } from "@/lib/shared/types";
+
+const POLL_MS = 3000;
+const HIDDEN_POLL_MS = 15_000;
 
 export type ListResponse = { items: SubmissionListItem[]; queue: QueueInfo; version: number };
 
@@ -39,11 +43,22 @@ export function useSubmissions(assignmentId: string, initial: ListResponse, onBa
     if (timer.current) clearTimeout(timer.current);
     if (!active) return;
     const tick = () => {
-      if (document.visibilityState === "visible") refresh();
-      timer.current = setTimeout(tick, 3000);
+      const visible = document.visibilityState === "visible";
+      // In the background the page only keeps checking when it has a notification to show at the end, and then less often.
+      if (visible || browserNotifyOn()) void refresh();
+      timer.current = setTimeout(tick, visible ? POLL_MS : HIDDEN_POLL_MS);
     };
-    timer.current = setTimeout(tick, 3000);
+    timer.current = setTimeout(tick, POLL_MS);
+    // Catch up as soon as the page is looked at again.
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      if (timer.current) clearTimeout(timer.current);
+      void refresh();
+      timer.current = setTimeout(tick, POLL_MS);
+    };
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
+      document.removeEventListener("visibilitychange", onVisible);
       if (timer.current) clearTimeout(timer.current);
     };
   }, [active, refresh]);

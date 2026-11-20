@@ -10,6 +10,7 @@ import { Icon } from "@/components/ui/Icon";
 import { toast } from "@/components/ui/Toast";
 import { api, errorMessage } from "@/lib/client/api";
 import { authClient } from "@/lib/client/auth-client";
+import { browserNotifyOn } from "@/lib/client/notify";
 import type { Me } from "@/lib/shared/types";
 import { CanvasAccount } from "./CanvasAccount";
 
@@ -39,7 +40,7 @@ export function AccountForm({
 
   useEffect(() => {
     try {
-      setBrowser(localStorage.getItem("jg-browser-notify") === "1" && typeof Notification !== "undefined" && Notification.permission === "granted");
+      setBrowser(browserNotifyOn());
       setBlocked(typeof Notification !== "undefined" && Notification.permission === "denied");
     } catch {
       /* ignore */
