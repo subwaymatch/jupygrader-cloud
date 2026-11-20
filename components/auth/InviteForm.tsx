@@ -46,6 +46,11 @@ export function InviteForm({ token, inv, signedInAs }: { token: string; inv: Inv
               You&apos;re signed in as {signedInAs}, but this invitation is for {inv.email}. Sign out, then open the link again.
             </span>
           </div>
+        ) : inv.deactivated && !sameUser ? (
+          <div className="callout callout--warn">
+            <Icon name="alertTriangle" size={15} />
+            <span>The account for {inv.email} has been deactivated. Ask an administrator to reactivate it, then open this link again.</span>
+          </div>
         ) : sameUser || inv.hasAccount ? (
           <p className="muted">
             {sameUser ? `You're signed in as ${signedInAs}.` : `${inv.email} already has an account. Sign in to accept the invitation.`}
@@ -68,7 +73,7 @@ export function InviteForm({ token, inv, signedInAs }: { token: string; inv: Inv
             {error}
           </div>
         )}
-        {sameUser || (!signedInAs && !inv.hasAccount) ? (
+        {sameUser || (!signedInAs && !inv.hasAccount && !inv.deactivated) ? (
           <Button type="submit" variant="primary" block loading={busy} icon="check">
             Accept invitation
           </Button>
@@ -78,7 +83,7 @@ export function InviteForm({ token, inv, signedInAs }: { token: string; inv: Inv
           </Link>
         ) : null}
       </form>
-      {!signedInAs && !inv.hasAccount && (
+      {!signedInAs && !inv.hasAccount && !inv.deactivated && (
         <div className="auth__foot">
           <div className="row">
             <Icon name="user" size={14} />

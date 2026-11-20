@@ -2,7 +2,7 @@ import { requireAssignment } from "@/lib/server/access";
 import { logActivity } from "@/lib/server/activity";
 import { canvasFor } from "@/lib/server/canvas";
 import { importStudents } from "@/lib/server/canvas-sync";
-import { enqueueGrading } from "@/lib/server/grading";
+import { kickGrading } from "@/lib/server/grading";
 import { badRequest, handle, readJson } from "@/lib/server/http";
 import { requireUser } from "@/lib/server/session";
 
@@ -26,7 +26,7 @@ export const POST = handle(async (req: Request, ctx: { params: Promise<{ id: str
     me,
     batchId: String(b.batchId || "").slice(0, 40) || "canvas",
   });
-  if (queued.length) await enqueueGrading(queued);
+  if (queued.length) await kickGrading();
   const total = (Number(b.prior) || 0) + results.reduce((n, r) => n + r.imported, 0);
   if (b.last && total) await logActivity({ type: "grading", user: me, courseId: course.id, text: `Imported ${total} file${total === 1 ? "" : "s"} from Canvas to ${asg.title}` });
   return Response.json({ results });

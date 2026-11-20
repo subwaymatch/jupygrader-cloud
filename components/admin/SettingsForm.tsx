@@ -10,7 +10,7 @@ import { OutputPolicyField } from "@/components/assignments/Fields";
 import { Select } from "@/components/ui/Select";
 import { toast } from "@/components/ui/Toast";
 import { api, errorMessage } from "@/lib/client/api";
-import { AI_PROVIDERS, EFFORTS, RETENTION_OPTIONS, type AiProvider } from "@/lib/shared/constants";
+import { AI_PROVIDERS, apiOrigin, EFFORTS, RETENTION_OPTIONS, type AiProvider } from "@/lib/shared/constants";
 import { fmtTokens, fmtUsd } from "@/lib/shared/format";
 import type { SiteSettings } from "@/lib/server/settings";
 
@@ -32,6 +32,8 @@ export function SettingsForm({ initial, keyInfo, usage, emailOn }: Props) {
   const provider = AI_PROVIDERS[s.aiProvider];
   const anthropic = s.aiProvider === "anthropic";
   const keyFromOtherProvider = s.aiProvider !== initial.aiProvider && keyInfo.source !== "none" && !apiKey;
+  // A saved key is only sent to the address it was saved for, so a different address needs the key typed in.
+  const keyNeeded = keyInfo.source !== "none" && !apiKey && apiOrigin(s.aiBaseUrl) !== apiOrigin(initial.aiBaseUrl);
 
   function switchProvider(aiProvider: AiProvider) {
     if (aiProvider === s.aiProvider) return;
@@ -133,6 +135,8 @@ export function SettingsForm({ initial, keyInfo, usage, emailOn }: Props) {
           hint={
             keyFromOtherProvider
               ? `Enter a key for ${provider.label}. The key ending in ${keyInfo.last4} was set up for the previous provider.`
+              : keyNeeded
+                ? `Enter the API key for this address. The saved key ending in ${keyInfo.last4} is only sent to the address it was saved for.`
               : keyInfo.source === "settings"
                 ? `A key ending in ${keyInfo.last4} is saved, encrypted. Enter a new one to replace it.`
                 : keyInfo.source === "env"
@@ -257,7 +261,7 @@ export function SettingsForm({ initial, keyInfo, usage, emailOn }: Props) {
         <h2 className="h2">Data retention</h2>
         <Field
           label="Delete submissions and graded results after"
-          hint="Counted from upload. Files, scores and feedback are deleted, and student links stop working. Only SHA-256 hashes are kept, so duplicate checks still work."
+          hint="Counted from upload. Files, scores and feedback are deleted, and student links stop working. Only SHA-256 hashes are kept, so duplicate checks still work. The activity log is kept for the same period."
         >
           <Select
             value={String(s.retention)}

@@ -64,11 +64,15 @@ export async function pdfText(bytes: Uint8Array): Promise<string> {
     for (const line of String(page).split("\n")) {
       const l = line.trim();
       if (!l) {
-        if (cur) paras.push(cur), (cur = "");
+        if (cur) paras.push(cur);
+        cur = "";
         continue;
       }
       cur = cur ? cur + " " + l : l;
-      if (cur.length > 500 && /[.?!:]$/.test(l)) paras.push(cur), (cur = "");
+      if (cur.length > 500 && /[.?!:]$/.test(l)) {
+        paras.push(cur);
+        cur = "";
+      }
     }
     if (cur) paras.push(cur);
   }

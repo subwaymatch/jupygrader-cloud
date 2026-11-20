@@ -1,4 +1,6 @@
+import { getCourseAccess } from "@/lib/server/access";
 import { badRequest, handle, notFound } from "@/lib/server/http";
+import { getSessionUser } from "@/lib/server/session";
 import { sharedSubmission } from "@/lib/server/share";
 import { buildDownload, contentDisposition, INLINE_CSP, nbconvertDownload } from "@/lib/server/submissions";
 
@@ -7,6 +9,11 @@ export const GET = handle(async (req: Request, ctx: { params: Promise<{ token: s
   const { token } = await ctx.params;
   const shared = await sharedSubmission(token);
   if (!shared) throw notFound("This link is no longer active.");
+  // Held for review: only course staff, previewing the student page, can load it.
+  if (shared.held) {
+    const me = await getSessionUser(req.headers);
+    if (!me || !(await getCourseAccess(me, shared.course.id))) throw notFound("This feedback isn't ready yet.");
+  }
   const url = new URL(req.url);
   const format = url.searchParams.get("format") || "html";
   if (!["html", "ipynb", "txt", "src", "doc"].includes(format)) throw badRequest("Unknown format.");

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { InvitePanel } from "@/components/people/InvitePanel";
+import { revokeInvitation, useConfirm } from "@/components/ui/Dialog";
 import { Icon } from "@/components/ui/Icon";
 import { ActionMenu } from "@/components/ui/Menu";
 import { Pager, pageSlice } from "@/components/ui/Pager";
@@ -20,6 +21,7 @@ const STATUS_STYLE: Record<InvitationRow["status"], [string, string]> = {
 
 export function InvitationsAdmin({ invitations, courses }: { invitations: InvitationRow[]; courses: { id: string; name: string }[] }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [filter, setFilter] = useState<"all" | InvitationRow["status"]>("all");
   const [page, setPage] = useState(1);
   const rows = useMemo(() => invitations.filter((i) => filter === "all" || i.status === filter), [invitations, filter]);
@@ -110,7 +112,11 @@ export function InvitationsAdmin({ invitations, courses }: { invitations: Invita
                         label: i.status === "pending" ? "Revoke" : "Remove",
                         icon: i.status === "pending" ? "ban" : "trash",
                         danger: true,
-                        onClick: () => run(() => api(`/api/invitations/${i.id}`, { method: "DELETE" }), i.status === "pending" ? "Invitation revoked" : "Removed"),
+                        onClick: async () => {
+                          // Removing a used or expired invitation only tidies the list. Revoking a live one breaks a link someone may be about to use.
+                          if (i.status === "pending" && !(await confirm(revokeInvitation(i.email)))) return;
+                          run(() => api(`/api/invitations/${i.id}`, { method: "DELETE" }), i.status === "pending" ? "Invitation revoked" : "Removed");
+                        },
                       },
                     ]}
                   />

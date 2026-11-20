@@ -1,15 +1,24 @@
 import { logActivity } from "@/lib/server/activity";
 import { badRequest, handle, readJson } from "@/lib/server/http";
 import { requireAdmin } from "@/lib/server/session";
-import { getSettings, getSettingsWithKey, saveSettings, type SiteSettings } from "@/lib/server/settings";
+import { getSettingsWithKey, saveSettings, type SiteSettings } from "@/lib/server/settings";
 import { canvasOrigin } from "@/lib/shared/canvas";
-import { AI_PROVIDERS, cleanOutputPolicy, isAiProvider, MAX_AI_IMAGES, type Effort } from "@/lib/shared/constants";
+import {
+  AI_PROVIDERS,
+  apiOrigin,
+  cleanOutputPolicy,
+  insecureApiAddress,
+  isAiProvider,
+  KEY_NEEDED_FOR_NEW_ADDRESS,
+  MAX_AI_IMAGES,
+  type Effort,
+} from "@/lib/shared/constants";
 
 export const PUT = handle(async (req: Request) => {
   const me = await requireAdmin(req);
   const b = await readJson<Partial<SiteSettings> & { aiApiKey?: string }>(req);
   const patch: Partial<SiteSettings> & { aiApiKey?: string } = {};
-  const current = await getSettings();
+  const current = await getSettingsWithKey();
   if (b.openReg !== undefined) patch.openReg = !!b.openReg;
   if (b.domains !== undefined) patch.domains = String(b.domains).slice(0, 1000);
   if (b.aiProvider !== undefined) {
@@ -19,10 +28,16 @@ export const PUT = handle(async (req: Request) => {
   const provider = AI_PROVIDERS[patch.aiProvider ?? current.aiProvider];
   if (b.aiBaseUrl !== undefined) {
     const u = String(b.aiBaseUrl).trim();
-    if (!/^https?:\/\/\S+$/.test(u)) throw badRequest(`Enter the API address as a URL, such as ${provider.baseUrl}.`);
+    if (!/^https?:\/\/\S+$/.test(u) || !apiOrigin(u)) throw badRequest(`Enter the API address as a URL, such as ${provider.baseUrl}.`);
     patch.aiBaseUrl = u.replace(/\/+$/, "");
+    if (patch.aiBaseUrl !== current.aiBaseUrl && insecureApiAddress(patch.aiBaseUrl))
+      throw badRequest("Use an https:// address. Plain http:// would send the API key and students' work unencrypted.");
   }
   if (b.aiApiKey !== undefined && b.aiApiKey !== "") patch.aiApiKey = String(b.aiApiKey).trim();
+  // The saved key can't be read back, and it stays that way: pointing the address at another site doesn't send
+  // the key there. Whoever changes the address has to have the key.
+  if (patch.aiBaseUrl && apiOrigin(patch.aiBaseUrl) !== apiOrigin(current.aiBaseUrl) && current.aiKeySource !== "none" && !patch.aiApiKey)
+    throw badRequest(KEY_NEEDED_FOR_NEW_ADDRESS);
   if (b.model !== undefined) {
     const m = String(b.model).trim();
     if (!m) throw badRequest("Choose a model.");

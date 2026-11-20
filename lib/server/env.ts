@@ -1,6 +1,8 @@
 import { env as workerEnv } from "cloudflare:workers";
 
 declare global {
+  // Adding to the Env that `wrangler types` generates takes a namespace: it is how that interface is declared.
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Cloudflare {
     interface Env {
       RESEND_API_KEY?: string;

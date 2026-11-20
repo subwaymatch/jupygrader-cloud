@@ -4,6 +4,7 @@ import { magicLink } from "better-auth/plugins";
 import { db, first } from "./db";
 import { appUrl, getEnv } from "./env";
 import { sendEmail } from "./email";
+import { consume } from "./rate-limit";
 
 function createAuth() {
   const env = getEnv();
@@ -43,7 +44,9 @@ function createAuth() {
       expiresIn: 60 * 60 * 24 * 14,
       updateAge: 60 * 60 * 24,
     },
-    rateLimit: { enabled: true, window: 60, max: 30 },
+    // Counted in D1 (lib/server/rate-limit.ts). better-auth's default keeps counts in memory, which on Workers
+    // is one short-lived instance among many, so sign-in attempts were barely limited.
+    rateLimit: { enabled: true, window: 60, max: 30, customStorage: { consume: (key, rule) => consume(`auth:${key}`, rule) } },
     plugins: [
       magicLink({
         disableSignUp: true,
@@ -68,12 +71,17 @@ function createAuth() {
               throw new APIError("FORBIDDEN", {
                 message: "Your account is waiting for an administrator to approve it. You'll get an email when it's ready.",
               });
+            if (u.status === "disabled")
+              throw new APIError("FORBIDDEN", { message: "This account has been deactivated. Ask an administrator if you think that's a mistake." });
             if (u.status !== "active") throw new APIError("FORBIDDEN", { message: "This account can't sign in." });
           },
         },
       },
     },
     advanced: {
+      // Cloudflare sets CF-Connecting-IP itself. X-Forwarded-For can carry whatever the client sent, and with
+      // more than one address in it better-auth has no IP at all and puts every visitor in one shared count.
+      ipAddress: { ipAddressHeaders: ["cf-connecting-ip", "x-forwarded-for"] },
       database: {
         generateId: () => crypto.randomUUID(),
         // The schema comes from migrations/, so skip better-auth's check of it. The check reads every table's

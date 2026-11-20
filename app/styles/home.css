@@ -39,6 +39,11 @@
 
 /* Header: fixed to the top of the window. Over the hero it's transparent with white type; once the page is
    scrolled it turns white and gets shorter, with smaller type (home-header--compact, set by HomeHeader). */
+/* The blue focus outline disappears against the sky, so it's white there. */
+.home-header:not(.home-header--compact) :focus-visible,
+.home-hero :focus-visible {
+  outline-color: #fff;
+}
 .home-header {
   position: fixed;
   top: 0;
@@ -247,7 +252,7 @@
 .home-btn--glow {
   background:
     radial-gradient(100% 100% at 66% 84%, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0) 60%),
-    linear-gradient(180deg, #1a7ff0 0%, #0b63d6 100%);
+    linear-gradient(180deg, #0d6ee2 0%, #0858c8 100%);
   color: #fff;
   box-shadow:
     0 16px 30px -12px rgba(16, 100, 225, 0.6),
@@ -257,7 +262,7 @@
 .home-btn--glow:hover {
   background:
     radial-gradient(100% 100% at 66% 84%, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0) 60%),
-    linear-gradient(180deg, #146fe0 0%, #0957c4 100%);
+    linear-gradient(180deg, #0a62cf 0%, #064db4 100%);
   color: #fff;
 }
 .home-btn--soft {

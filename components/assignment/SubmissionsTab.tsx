@@ -4,6 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Controls";
 import { useConfirm } from "@/components/ui/Dialog";
+import { useUnloadWarning } from "@/components/ui/LeaveGuard";
+import { needsReview } from "@/lib/shared/review";
+import { regradeConfirm } from "./confirmRegrade";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { EmptyState, Mascot } from "@/components/ui/Mascot";
 import { ActionMenu, type MenuEntry } from "@/components/ui/Menu";
@@ -22,7 +25,7 @@ type Tab = "all" | "progress" | "graded" | "review" | "failed" | "skipped";
 type SortKey = "uploaded" | "file" | "status" | "grade";
 type ReviewFilter = "needs" | "reviewed" | "unreviewed" | "edited" | "outdated";
 
-export const needsReview = (s: SubmissionListItem) => s.status === "graded" && !s.reviewed && (s.confidence === "low" || !!s.nearOf);
+export { needsReview };
 const isActive = (s: SubmissionListItem) => s.status === "queued" || s.status === "grading";
 
 export function reviewReason(s: SubmissionListItem): string {
@@ -87,6 +90,8 @@ export function SubmissionsTab({
   const [hash, setHash] = useState("");
   const [staged, setStaged] = useState<Staged[] | null>(null);
   const [regrade, setRegrade] = useState(false);
+  // Uploads carry on while the person moves around the app, but closing or reloading the page drops the files not yet sent.
+  useUnloadWarning(list.uploading > 0);
   const [stageProgress, setStageProgress] = useState<StageProgress | null>(null);
   const stageAbort = useRef<AbortController | null>(null);
   const [pending, setPending] = useState<Pending[]>([]);
@@ -204,31 +209,37 @@ export function SubmissionsTab({
     let done = 0;
     let failed = 0;
     const queueList = [...keys];
+    // The last file goes on its own once the others are in, marked so the server records the whole upload once, with its real count.
+    const finalJob = queueList.pop();
+    const send = async (job: (typeof keys)[number], last: boolean) => {
+      const form = new FormData();
+      form.set("file", job.f.file, job.f.name);
+      form.set("batchId", batchId);
+      form.set("regradeDuplicates", regrade ? "1" : "0");
+      if (last) {
+        form.set("last", "1");
+        form.set("count", String(done + 1));
+      }
+      try {
+        const r = await api<{ item: SubmissionListItem }>(`/api/assignments/${asg.id}/submissions`, { body: form });
+        list.upsert(r.item);
+        setPending((p) => p.filter((x) => x.key !== job.key));
+        done++;
+      } catch (err) {
+        failed++;
+        setPending((p) => p.map((x) => (x.key === job.key ? { ...x, error: errorMessage(err) } : x)));
+      }
+      list.setUploading(files.length - done - failed);
+    };
     const worker = async () => {
       for (;;) {
         const job = queueList.shift();
         if (!job) return;
-        const form = new FormData();
-        form.set("file", job.f.file, job.f.name);
-        form.set("batchId", batchId);
-        form.set("regradeDuplicates", regrade ? "1" : "0");
-        if (done + failed === files.length - 1) {
-          form.set("last", "1");
-          form.set("count", String(files.length));
-        }
-        try {
-          const r = await api<{ item: SubmissionListItem }>(`/api/assignments/${asg.id}/submissions`, { body: form });
-          list.upsert(r.item);
-          setPending((p) => p.filter((x) => x.key !== job.key));
-          done++;
-        } catch (err) {
-          failed++;
-          setPending((p) => p.map((x) => (x.key === job.key ? { ...x, error: errorMessage(err) } : x)));
-        }
-        list.setUploading(files.length - done - failed);
+        await send(job, false);
       }
     };
     await Promise.all([worker(), worker(), worker()]);
+    if (finalJob) await send(finalJob, true);
     list.setUploading(0);
     await list.refresh();
     toast(failed ? `${done} uploaded, ${failed} failed` : `${plural(done, "file")} uploaded`, failed ? { error: true } : {});
@@ -237,6 +248,10 @@ export function SubmissionsTab({
 
   // ----- Actions -----
   async function act(action: "regrade" | "retry" | "gradeAnyway" | "cancel" | "remove", ids: string[], ok: (n: number) => string) {
+    if (action === "regrade") {
+      const ask = regradeConfirm(items.filter((s) => ids.includes(s.id)));
+      if (ask && !(await confirm(ask))) return;
+    }
     try {
       const r = await api<{ count: number }>(`/api/assignments/${asg.id}/actions`, { body: { action, ids } });
       toast(r.count ? ok(r.count) : "Nothing to do for those files");
@@ -264,7 +279,15 @@ export function SubmissionsTab({
   function rowMenu(s: SubmissionListItem): MenuEntry[] {
     const out: MenuEntry[] = [{ label: s.status === "graded" ? "Open feedback" : "Open file", icon: "eye", onClick: () => openFile(s.id) }];
     if (s.shareToken)
-      out.push({ label: "Copy student link", icon: "link", onClick: async () => toast((await copyText(studentLink(s))) ? "Student link copied" : "Couldn't copy the link") });
+      out.push({
+        label: "Copy student link",
+        icon: "link",
+        onClick: async () => {
+          if (!(await copyText(studentLink(s)))) return toast("Couldn't copy the link", { error: true });
+          toast(needsReview(s) ? "Student link copied. The student can't open it until this file is marked reviewed." : "Student link copied", needsReview(s) ? { timeout: 7000 } : {});
+        },
+      });
+    if (s.nearOf) out.push({ label: "Compare with its close match", icon: "copy", onClick: () => window.open(`/app/submissions/${s.id}/compare?with=${s.nearOf!.id}`, "_blank", "noopener") });
     if (canGrade) {
       if (s.status === "graded" || s.status === "cancelled") out.push({ label: "Regrade", icon: "refresh", onClick: () => act("regrade", [s.id], () => "Queued for regrading") });
       if (s.status === "queued") out.push({ label: "Cancel", icon: "ban", onClick: () => act("cancel", [s.id], () => "Cancelled") });
@@ -688,27 +711,27 @@ export function SubmissionsTab({
                     <div className="act-group" role="group">
                       {s.status === "graded" && (
                         <>
-                          <a className="act" href={fileHref(s.id)} target="_blank" rel="noopener">
+                          <a className="act" href={fileHref(s.id)} target="_blank" rel="noopener" title="Feedback">
                             <Icon name="messageText" size={15} />
-                            Feedback
+                            <span className="act__label">Feedback</span>
                           </a>
                           <span className="sep" />
                         </>
                       )}
                       {canGrade && s.status === "failed" && (
                         <>
-                          <button className="act" onClick={() => act("retry", [s.id], () => "Queued for retry")}>
+                          <button className="act" title="Retry" onClick={() => act("retry", [s.id], () => "Queued for retry")}>
                             <Icon name="rotate" size={15} />
-                            Retry
+                            <span className="act__label">Retry</span>
                           </button>
                           <span className="sep" />
                         </>
                       )}
                       {canGrade && s.status === "skipped" && (
                         <>
-                          <button className="act" onClick={() => act("gradeAnyway", [s.id], () => "Queued for grading")}>
+                          <button className="act" title="Grade anyway" onClick={() => act("gradeAnyway", [s.id], () => "Queued for grading")}>
                             <Icon name="play" size={14} />
-                            Grade anyway
+                            <span className="act__label">Grade anyway</span>
                           </button>
                           <span className="sep" />
                         </>

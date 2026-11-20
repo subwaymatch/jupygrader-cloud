@@ -1,29 +1,34 @@
-import { EMAIL_RE, normEmail, userByEmail } from "@/lib/server/accounts";
+import { EMAIL_RE, normEmail, passwordMatches } from "@/lib/server/accounts";
 import { logActivity } from "@/lib/server/activity";
 import { first, run } from "@/lib/server/db";
+import { requestEmailChange } from "@/lib/server/email-confirm";
 import { badRequest, handle, readJson } from "@/lib/server/http";
+import { limit } from "@/lib/server/rate-limit";
 import { requireUser } from "@/lib/server/session";
 
 export const PATCH = handle(async (req: Request) => {
   const me = await requireUser(req);
-  const b = await readJson<{ name?: string; email?: string; notifyEmail?: boolean }>(req);
-  if (b.name !== undefined) {
-    const n = String(b.name).trim();
-    if (!n) throw badRequest("Enter your name.");
-    await run(`update "user" set name = ?, "updatedAt" = ? where id = ?`, n.slice(0, 120), new Date().toISOString(), me.id);
-  }
+  const b = await readJson<{ name?: string; email?: string; password?: string; notifyEmail?: boolean }>(req);
+  const newName = b.name === undefined ? null : String(b.name).trim();
+  if (newName === "") throw badRequest("Enter your name.");
+  // The address changes only once the link sent to the new one is opened (lib/server/email-confirm.ts).
+  let emailPending: string | null = null;
+  let emailed = false;
   if (b.email !== undefined) {
     const e = normEmail(b.email);
     if (!EMAIL_RE.test(e)) throw badRequest("Enter a valid email address.");
     if (e !== me.email.toLowerCase()) {
-      const other = await userByEmail(e);
-      if (other && other.id !== me.id) throw badRequest("Another account already uses that email.");
-      await run(`update "user" set email = ?, "emailVerified" = 0, "updatedAt" = ? where id = ?`, e, new Date().toISOString(), me.id);
-      await logActivity({ type: "people", user: me, text: `Changed their email to ${e}` });
+      await limit(`change-email:${me.id}`, { window: 3600, max: 5 }, "You've asked to change your email several times already.");
+      // The email address is how an account is recovered, so changing it takes the password, not just a signed-in browser.
+      if (!b.password) throw badRequest("Enter your current password to change your email.");
+      if (!(await passwordMatches(me.id, String(b.password)))) throw badRequest("That isn't your current password.");
+      emailed = (await requestEmailChange(me, e, req)).sent;
+      emailPending = e;
     }
   }
+  if (newName) await run(`update "user" set name = ?, "updatedAt" = ? where id = ?`, newName.slice(0, 120), new Date().toISOString(), me.id);
   if (b.notifyEmail !== undefined) await run(`update "user" set "notifyEmail" = ? where id = ?`, !!b.notifyEmail, me.id);
-  return Response.json({ ok: true });
+  return Response.json({ ok: true, emailPending, emailed });
 });
 
 export const DELETE = handle(async (req: Request) => {

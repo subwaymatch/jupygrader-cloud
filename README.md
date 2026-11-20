@@ -6,13 +6,13 @@ Teachers set up an assignment with instructions, a rubric and an optional answer
 
 ## Features
 
-- **Courses and roles.** Per-course Teacher and Grader roles, site-wide Admins. Instructors request an account and an admin approves it. Graders and TAs join through email invitations. The first account on a new site becomes the admin. Teachers and admins can reset a course, deleting its assignments, files and grades while keeping the course and its people. The courses page shows each course's dates and week of term, its people, and how many files are graded, in progress or waiting for review.
+- **Courses and roles.** Per-course Teacher and Grader roles, site-wide Admins. Instructors request an account, confirm their email address through a link, and an admin approves it. Graders and TAs join through email invitations. The first account on a new site becomes the admin. Admins can deactivate an account (it can't sign in, and keeps its course roles) or delete it. Teachers and admins can reset a course, deleting its assignments, files and grades while keeping the course and its people. The courses page shows each course's dates and week of term, its people, and how many files are graded, in progress or waiting for review.
 - **Assignments.** Instructions as text or a document (PDF, DOCX, Markdown, text). Rubrics can be skipped (the AI splits the points from the instructions), pasted or uploaded and itemized by the AI, or built by hand. Answer keys are sent to the AI but never shown to students. Grading style (from Completion, which gives full points for every part a student attempted, to Strict), feedback tone and length, notes for the AI, and how many notebook plots and interactive outputs the AI sees (the site's default or the assignment's own).
-- **Uploads.** Drag and drop anywhere on the page, or a `.zip` (unpacked in the browser). Exact duplicates are detected by SHA-256 before upload. Near-identical submissions (MinHash over the code) are flagged for review.
-- **Background grading.** Files are queued in Cloudflare Queues and graded a few at a time, so the page can be closed. Rate limits and transient errors are retried. Admins set how many files are graded at once.
+- **Uploads.** Drag and drop anywhere on the page, or a `.zip` (unpacked in the browser). Exact duplicates are detected by SHA-256 before upload. Near-identical submissions (MinHash over the code) are flagged for review, with a side-by-side comparison that marks the lines two files share. An assignment can have a starter file, the template students began from, whose code is left out of the comparison so work that only shares the starter isn't flagged.
+- **Background grading.** Files wait in the database and are graded a few at a time, oldest first, so the page can be closed. Cloudflare Queues wakes the graders, and each one wakes the next when it finishes. Rate limits and transient errors are retried. Admins set how many files are graded at once.
 - **Review.** Each file's feedback opens in a new tab, as a split view with the notebook on the left (with its feedback, as nbconvert HTML when available) and the scores on the right. Low-confidence grades and close matches are flagged. Edit any rubric line (the AI's score stays visible and every change is in the history), override the total, mark files reviewed. Keyboard shortcuts: <kbd>J</kbd>/<kbd>K</kbd> next and previous, <kbd>R</kbd> reviewed, <kbd>E</kbd> edit total.
 - **Feedback into the notebook.** Downloads insert a summary cell at the top and a `> **Feedback:**` Markdown cell after each commented cell, keeping every original cell, output and piece of metadata. Feedback cells are tagged (`jupygrader-feedback`), so grading a notebook that already has feedback replaces it instead of stacking it. Code files get feedback as comments in the file's own comment syntax; Markdown and text files get it after each paragraph. HTML, plain-text and JSON exports are available too, for one file or a `.zip` of many, plus a grades CSV.
-- **Student links.** A private page per file with the score, rubric, and the work with its feedback (the same nbconvert HTML as the feedback page, for notebooks). Links can be turned off or replaced. Students don't need accounts.
+- **Student links.** A private page per file with the score, rubric, and the work with its feedback (the same nbconvert HTML as the feedback page, for notebooks). Links can be turned off or replaced, and the link for a file that's flagged for review opens once someone has marked it reviewed. Students don't need accounts.
 - **Canvas.** Link a course to its Canvas course, and each assignment to a Canvas assignment, or create an assignment from one (title, points and instructions). Import the files students submitted, including new attempts and `.zip` files, then post grades back, each with an optional comment (score, summary and rubric) and the file with feedback attached. Scores are scaled to the Canvas assignment's points. Each person connects their own Canvas account with an access token, so Canvas's permissions apply. See [Canvas](#canvas).
 - **Admin.** Overview of what needs attention, users and roles, invitations, an activity log, and site settings (AI connection with an encrypted API key, plots and interactive outputs sent to the AI, concurrency, data retention).
 - **Public home page.** `/` introduces Jupygrader to instructors, graders and students and links to sign-in and account requests. The signed-in app lives under `/app`; old `/courses`, `/admin`, `/account`, `/help` and `/submissions` links redirect there. Student links (`/r/...`) and invitations (`/invite/...`) keep their addresses.
@@ -134,7 +134,7 @@ What differs in a preview:
 
 ### Without a queue
 
-The queue is optional. Remove the `queues` block from `wrangler.jsonc` and the every-minute Cron Trigger grades queued files instead, up to the "Files graded at once" setting per minute. Grading is slower to start but nothing else changes.
+The queue is optional. Remove the `queues` block from `wrangler.jsonc` and the every-minute Cron Trigger grades waiting files instead, up to the "Files graded at once" setting per minute. Grading is slower to start but nothing else changes.
 
 ### nbconvert container
 
@@ -163,6 +163,15 @@ Graded notebooks are rendered as HTML by Jupyter's own nbconvert (the JupyterLab
 
 Everything else (registration, allowed email domains, concurrency, retention, reasoning effort, sending plots and interactive outputs to the AI, the Canvas address) is set by an admin in the app.
 
+### Accounts and security
+
+- **Email addresses are confirmed.** A new account request, and a change of address on the Account page, each send a link to the address, and nothing changes until it's opened. Admins see whether a request's address was confirmed, and are asked before approving one that wasn't. Only someone with a confirmed address is added to a course straight away when invited; anyone else gets the invitation by email. Without `RESEND_API_KEY` the links are written to the Worker logs like every other email, and requests show as unconfirmed.
+- **Rate limits** are counted in D1 (`rate_limit` table, `lib/server/rate-limit.ts`), so they hold across Worker instances: sign-in and the other auth routes through better-auth, plus account requests (5 an hour per address) and confirmation links. The client's address comes from `CF-Connecting-IP`.
+- **Security headers** are added to every response in `worker/index.ts` (`lib/server/security-headers.ts`): a content security policy, `X-Content-Type-Options`, `X-Frame-Options`, HSTS, and a referrer policy that sends nothing from pages whose address holds a secret, such as student links.
+- **Changing an account's email** takes the current password as well as the link sent to the new address.
+- **Deleted data doesn't linger.** Deleting an assignment or resetting a course deletes its uploaded instructions, rubric, starter file and answer keys, unless a copy of the assignment still uses them. A nightly job removes documents uploaded on forms that were never saved, and trims the activity log to the retention period (it names files and people, so it's kept no longer than the files).
+- **The AI API key** is only sent to the site it was saved for. Changing the API address to another site needs the key entered again, so the saved key can't be read by pointing the address elsewhere. Plain `http://` addresses are only accepted for `localhost`.
+
 ### Canvas
 
 1. An admin enters the school's Canvas address (for example `https://canvas.university.edu`) in **Admin > Settings > Canvas**. Leaving it blank turns Canvas off.
@@ -175,8 +184,8 @@ Imports and posting run a few students per request, driven by the page, so large
 
 ## How grading works
 
-1. Each uploaded file is stored in R2, fingerprinted (SHA-256 for exact duplicates, MinHash for close matches) and queued.
-2. The queue consumer claims the file (an atomic status change, so a job never runs twice), checks the concurrency limit, and builds the prompt: instructions, rubric, answer key (marked confidential), notes, and the file rendered with markers. Notebook cells are `[C1]`, `[C2]`…; code files are numbered lines (`L12-18`); documents are paragraphs (`[P3]`). Notebook plots and interactive outputs (widgets, Plotly, Bokeh, Vega) are replaced with a short note by default; admins can send all, some or none of the plots as images, and the text form of interactive outputs, for the whole site or per assignment. The file name is not sent. Everything before the file is the same for each file of an assignment, so it can be cached across a batch.
+1. Each uploaded file is stored in R2, fingerprinted (SHA-256 for exact duplicates, MinHash for close matches, without the assignment's starter code) and queued.
+2. A queue message is a wake-up, not a job. Its consumer claims the file that has waited longest, in one statement that also checks the concurrency limit (so a file is never graded twice and the limit holds), and wakes the next consumer when it finishes. The every-minute cron wakes consumers too whenever files wait while slots are free, so a lost message only costs a minute. The consumer builds the prompt: instructions, rubric, answer key (marked confidential), notes, and the file rendered with markers. Notebook cells are `[C1]`, `[C2]`…; code files are numbered lines (`L12-18`); documents are paragraphs (`[P3]`). Notebook plots and interactive outputs (widgets, Plotly, Bokeh, Vega) are replaced with a short note by default; admins can send all, some or none of the plots as images, and the text form of interactive outputs, for the whole site or per assignment. The file name is not sent. Everything before the file is the same for each file of an assignment, so it can be cached across a batch.
 3. The AI returns JSON matching a schema: a score, comment and cited markers for each rubric item, inline comments, a summary, and a confidence signal. The reply is validated: scores are clamped to each item's maximum in half points, unknown markers are dropped, and the total is scaled to the assignment's points.
 4. Each grade stores the settings it was graded with, such as the rubric version and grading style, so changing the setup marks older grades as "graded with earlier settings" until they're regraded.
 
@@ -197,8 +206,12 @@ migrations/             D1 schema
 worker/index.ts         Worker entry: fetch (vinext), queue and scheduled handlers
 worker/nbconvert.ts     Durable Object that runs the nbconvert container
 containers/nbconvert/   nbconvert container: Dockerfile and HTTP server
-test/                   unit tests (Vitest)
+test/                   unit tests (Vitest); test/helpers runs routes against an in-memory D1 and R2
 ```
+
+## Tests and checks
+
+`npm test` runs the unit tests. Most cover pure modules. `test/access.test.ts` and `test/pipeline.test.ts` run the real route handlers and server modules against an in-memory database (Node's built-in SQLite with the migrations applied) and file store, with only the session and the AI API stood in for: who can reach which route, the grading flow, the clean-up jobs and the similarity checks. The **CI** workflow (`.github/workflows/ci.yml`) runs lint, the type-check and the tests on every pull request.
 
 ## Scripts
 
@@ -211,6 +224,7 @@ test/                   unit tests (Vitest)
 | `npm run db:migrate:local` / `db:migrate:remote` | Apply D1 migrations |
 | `npm run db:migrate:preview` | Apply D1 migrations to the staging database used by pull request previews |
 | `npm test` | Unit tests |
+| `npm run lint` | ESLint, with the React hooks rules |
 | `npm run typecheck` | Generate binding types and type-check |
 
 ## Generated images

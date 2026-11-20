@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { ConfirmProvider } from "@/components/ui/Dialog";
+import { LeaveGuard } from "@/components/ui/LeaveGuard";
 import { ToastProvider } from "@/components/ui/Toast";
 import "./styles/base.css";
 import "./styles/ui.css";
@@ -39,7 +40,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <ToastProvider>
-          <ConfirmProvider>{children}</ConfirmProvider>
+          <ConfirmProvider>
+            <LeaveGuard />
+            {children}
+          </ConfirmProvider>
         </ToastProvider>
       </body>
     </html>

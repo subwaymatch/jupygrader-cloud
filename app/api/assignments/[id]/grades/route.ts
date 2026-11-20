@@ -1,6 +1,6 @@
 import { requireAssignment, type SubmissionRow } from "@/lib/server/access";
 import { logActivity } from "@/lib/server/activity";
-import { all, inList, parseJson } from "@/lib/server/db";
+import { all, allIn, parseJson } from "@/lib/server/db";
 import { handle } from "@/lib/server/http";
 import { requireUser } from "@/lib/server/session";
 import { contentDisposition, shareUrl } from "@/lib/server/submissions";
@@ -12,10 +12,12 @@ export const GET = handle(async (req: Request, ctx: { params: Promise<{ id: stri
   const me = await requireUser(req);
   const { id } = await ctx.params;
   const { asg, course } = await requireAssignment(me, id, "grade");
-  const ids = (new URL(req.url).searchParams.get("ids") || "").split(",").filter(Boolean);
+  const ids = [...new Set((new URL(req.url).searchParams.get("ids") || "").split(",").filter(Boolean))];
   const rows = ids.length
-    ? await all<SubmissionRow>(`select * from submission where assignment_id = ? and id in (${inList(ids.length)}) order by file_name`, id, ...ids)
+    ? await allIn<SubmissionRow>((q) => `select * from submission where assignment_id = ? and id in (${q})`, [id], ids)
     : await all<SubmissionRow>("select * from submission where assignment_id = ? order by file_name", id);
+  // Chunks of a long id list come back one after another, so sort the whole list here, the way SQLite does.
+  if (ids.length) rows.sort((a, b) => (a.file_name < b.file_name ? -1 : a.file_name > b.file_name ? 1 : 0));
   const crit: string[] = [];
   for (const r of rows) for (const c of parseJson<GradeResult | null>(r.result, null)?.criteria ?? []) if (!crit.includes(c.name)) crit.push(c.name);
   const out: unknown[][] = [["file", "student", "status", "score", "points", "ai_score", "reviewed", "needs_review", ...crit, "student_link", "sha256", "graded_at", "rubric_version", "grading_style", "model"]];

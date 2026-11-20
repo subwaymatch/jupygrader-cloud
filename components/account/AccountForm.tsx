@@ -10,16 +10,22 @@ import { Icon } from "@/components/ui/Icon";
 import { toast } from "@/components/ui/Toast";
 import { api, errorMessage } from "@/lib/client/api";
 import { authClient } from "@/lib/client/auth-client";
+import { browserNotifyOn } from "@/lib/client/notify";
 import type { Me } from "@/lib/shared/types";
 import { CanvasAccount } from "./CanvasAccount";
+
+const LINK_IN_LOGS = "Email isn't set up on this site, so the link was written to the Worker logs instead of being sent. Ask an administrator for it.";
 
 export function AccountForm({
   me,
   roles,
   deleteBlock,
   canvas,
+  pendingEmail,
 }: {
   me: Me;
+  /** An address the account is waiting to change to, once the link sent there is opened. */
+  pendingEmail: string | null;
   roles: { courseId: string; course: string; role: string }[];
   deleteBlock: string | null;
   /** Shown when Canvas is set up, and to admins so they know where to set it up. */
@@ -36,10 +42,14 @@ export function AccountForm({
   const [browser, setBrowser] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [busy, setBusy] = useState("");
+  const [waitingFor, setWaitingFor] = useState(pendingEmail);
+  const [emailPw, setEmailPw] = useState("");
+  const emailChanged = email.trim().toLowerCase() !== me.email.toLowerCase();
+  const [confirmSent, setConfirmSent] = useState(false);
 
   useEffect(() => {
     try {
-      setBrowser(localStorage.getItem("jg-browser-notify") === "1" && typeof Notification !== "undefined" && Notification.permission === "granted");
+      setBrowser(browserNotifyOn());
       setBlocked(typeof Notification !== "undefined" && Notification.permission === "denied");
     } catch {
       /* ignore */
@@ -49,9 +59,34 @@ export function AccountForm({
   async function saveProfile() {
     setBusy("profile");
     try {
-      await api("/api/account", { method: "PATCH", body: { name, email } });
-      toast("Profile saved");
+      const r = await api<{ emailPending: string | null; emailed: boolean }>("/api/account", {
+        method: "PATCH",
+        body: { name, email, password: emailChanged ? emailPw : undefined },
+      });
+      setEmailPw("");
+      if (r.emailPending) {
+        // The address only changes once the link sent to the new one is opened.
+        setWaitingFor(r.emailPending);
+        setEmail(me.email);
+        toast(r.emailed ? `We sent a link to ${r.emailPending}. Open it to finish changing your email.` : LINK_IN_LOGS, { timeout: 9000 });
+      } else toast("Profile saved");
       router.refresh();
+    } catch (err) {
+      toast(errorMessage(err), { error: true });
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function sendConfirm() {
+    setBusy("confirm");
+    try {
+      const r = await api<{ emailed?: boolean; alreadyConfirmed?: boolean }>("/api/account/confirm-email", { method: "POST" });
+      if (r.alreadyConfirmed) router.refresh();
+      else {
+        setConfirmSent(true);
+        toast(r.emailed ? `We sent a link to ${me.email}.` : LINK_IN_LOGS, { timeout: 9000 });
+      }
     } catch (err) {
       toast(errorMessage(err), { error: true });
     } finally {
@@ -120,12 +155,39 @@ export function AccountForm({
           <Field label="Full name" htmlFor="ac-name">
             <Input id="ac-name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
           </Field>
-          <Field label="Email" htmlFor="ac-email">
+          <Field
+            label="Email"
+            htmlFor="ac-email"
+            hint={
+              waitingFor
+                ? `Waiting for you to open the link we sent to ${waitingFor}. Until then your email stays as it is.`
+                : emailChanged
+                  ? "We'll send a link to the new address. Your email changes when you open it."
+                  : undefined
+            }
+          >
             <Input id="ac-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
           </Field>
+          {emailChanged && (
+            <Field label="Current password" htmlFor="ac-email-pw" hint="Needed to change your email.">
+              <Input id="ac-email-pw" type="password" value={emailPw} onChange={(e) => setEmailPw(e.target.value)} autoComplete="current-password" />
+            </Field>
+          )}
         </div>
+        {!me.emailVerified && (
+          <div className="callout callout--warn">
+            <Icon name="mail" size={15} />
+            <span className="grow">
+              You haven&apos;t confirmed that {me.email} is yours. Until you do, people who add you to a course have to send you an invitation link
+              instead of adding you straight away.
+            </span>
+            <Button variant="secondary" size="sm" onClick={sendConfirm} loading={busy === "confirm"} disabled={confirmSent}>
+              {confirmSent ? "Link sent" : "Send confirmation link"}
+            </Button>
+          </div>
+        )}
         <div>
-          <Button variant="secondary" icon="save" onClick={saveProfile} loading={busy === "profile"} disabled={name === me.name && email === me.email}>
+          <Button variant="secondary" icon="save" onClick={saveProfile} loading={busy === "profile"} disabled={(name === me.name && !emailChanged) || (emailChanged && !emailPw)}>
             Save profile
           </Button>
         </div>

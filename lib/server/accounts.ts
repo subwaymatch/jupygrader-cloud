@@ -17,8 +17,8 @@ export async function countUsers(): Promise<number> {
 }
 
 export async function userByEmail(email: string) {
-  return first<{ id: string; name: string; email: string; status: string; isAdmin: number }>(
-    'select id, name, email, status, isAdmin from "user" where lower(email) = ?',
+  return first<{ id: string; name: string; email: string; status: string; isAdmin: number; emailVerified: number }>(
+    'select id, name, email, status, isAdmin, "emailVerified" from "user" where lower(email) = ?',
     normEmail(email),
   );
 }
@@ -35,13 +35,15 @@ export async function createUserWithPassword(opts: {
   password: string;
   status: "active" | "pending";
   isAdmin?: boolean;
+  /** True when the person has shown they receive mail at the address, such as by opening an invitation sent to it. */
+  emailVerified?: boolean;
 }): Promise<string> {
   const ctx = await getAuth().$context;
   const hash = await ctx.password.hash(opts.password);
   const user = await ctx.internalAdapter.createUser({
     name: opts.name.trim(),
     email: normEmail(opts.email),
-    emailVerified: false,
+    emailVerified: !!opts.emailVerified,
     isAdmin: !!opts.isAdmin,
     status: opts.status,
     notifyEmail: true,
@@ -56,6 +58,15 @@ export async function setPassword(userId: string, password: string) {
   const existing = await first<{ id: string }>("select id from account where userId = ? and providerId = 'credential'", userId);
   if (existing) await ctx.internalAdapter.updatePassword(userId, hash);
   else await ctx.internalAdapter.linkAccount({ userId, providerId: "credential", accountId: userId, password: hash });
+}
+
+/** Whether `password` is the account's current password. False for an account that has none. */
+export async function passwordMatches(userId: string, password: string): Promise<boolean> {
+  if (!password) return false;
+  const row = await first<{ password: string | null }>("select password from account where userId = ? and providerId = 'credential'", userId);
+  if (!row?.password) return false;
+  const ctx = await getAuth().$context;
+  return ctx.password.verify({ hash: row.password, password });
 }
 
 /** Signs in with email and password and returns better-auth's response (with session cookies). */
@@ -115,7 +126,13 @@ export async function inviteToCourse(opts: {
       continue;
     }
     const user = await userByEmail(email);
-    if (user && user.status === "active") {
+    if (user?.status === "disabled") {
+      out.skipped.push({ email, reason: "This account is deactivated. An administrator can reactivate it." });
+      continue;
+    }
+    // Only an account with a confirmed address joins straight away. Anyone can ask for an account under an
+    // address, so an unconfirmed one gets the invitation by email instead: it reaches whoever really has the address.
+    if (user && user.status === "active" && user.emailVerified) {
       const existing = await first<{ role: string }>("select role from enrollment where course_id = ? and user_id = ?", opts.courseId, user.id);
       if (existing) {
         out.skipped.push({ email, reason: `Already a ${existing.role} in this course.` });
@@ -205,6 +222,8 @@ export type InvitationView = {
   inviter: string;
   valid: boolean;
   hasAccount: boolean;
+  /** The invited address belongs to an account an administrator deactivated. */
+  deactivated: boolean;
 };
 
 export async function invitationByToken(token: string): Promise<InvitationView | null> {
@@ -238,6 +257,7 @@ export async function invitationByToken(token: string): Promise<InvitationView |
     inviter: row.inviter || "Your instructor",
     valid,
     hasAccount: !!account && account.status === "active",
+    deactivated: account?.status === "disabled",
   };
 }
 
@@ -251,5 +271,7 @@ export async function acceptInvitation(inv: InvitationView, userId: string, user
     now,
   );
   await run("update invitation set status = 'accepted', accepted_at = ?, accepted_by = ? where id = ?", now, userId, inv.id);
+  // The invitation was emailed to this address, so opening it shows the address is theirs.
+  await run(`update "user" set "emailVerified" = 1 where id = ? and lower(email) = ?`, userId, normEmail(inv.email));
   await logActivity({ type: "people", user: { id: userId, name: userName }, courseId: inv.courseId, text: `Joined ${inv.courseName} as ${inv.role}` });
 }

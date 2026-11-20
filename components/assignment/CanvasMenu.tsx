@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Controls";
 import { Modal } from "@/components/ui/Dialog";
+import { useUnloadWarning } from "@/components/ui/LeaveGuard";
 import { Icon } from "@/components/ui/Icon";
 import { Mascot } from "@/components/ui/Mascot";
 import { ActionMenu, type MenuEntry } from "@/components/ui/Menu";
@@ -282,6 +283,8 @@ function ImportDialog({
   }
 
   const working = !!progress;
+  // The page sends the batches one after another, so closing it stops the run part-way.
+  useUnloadWarning(working);
   return (
     <Modal
       open
@@ -437,6 +440,8 @@ function PostDialog({
   }
 
   const working = !!progress;
+  // The page sends the batches one after another, so closing it stops the run part-way.
+  useUnloadWarning(working);
   return (
     <Modal
       open
@@ -517,7 +522,10 @@ function PostDialog({
           {flagged > 0 && (
             <p className="callout callout--warn">
               <Icon name="flag" size={15} />
-              <span>{plural(flagged, "grade")} still need{flagged === 1 ? "s" : ""} review. Turn on &ldquo;Only files marked reviewed&rdquo; to hold them back.</span>
+              <span>
+                {plural(flagged, "grade")} still need{flagged === 1 ? "s" : ""} review. Turn on &ldquo;Only files marked reviewed&rdquo; to hold them back. If you post
+                them, the grade goes to Canvas, but the student&apos;s feedback link stays closed until the file is reviewed.
+              </span>
             </p>
           )}
           {progress && (

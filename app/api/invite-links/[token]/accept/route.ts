@@ -8,7 +8,7 @@ import {
   userByEmail,
 } from "@/lib/server/accounts";
 import { run } from "@/lib/server/db";
-import { badRequest, handle, notFound, readJson } from "@/lib/server/http";
+import { badRequest, forbidden, handle, notFound, readJson } from "@/lib/server/http";
 import { getSessionUser } from "@/lib/server/session";
 
 export const POST = handle(async (req: Request, ctx: { params: Promise<{ token: string }> }) => {
@@ -28,6 +28,8 @@ export const POST = handle(async (req: Request, ctx: { params: Promise<{ token: 
   const body = await readJson<{ name?: string; password?: string }>(req);
   const existing = await userByEmail(inv.email);
   if (existing?.status === "active") throw badRequest("You already have an account. Sign in to accept the invitation.");
+  // An invitation doesn't undo an administrator's decision to deactivate an account.
+  if (existing?.status === "disabled") throw forbidden("This account has been deactivated. Ask an administrator to reactivate it.");
   const name = String(body.name || "").trim();
   if (!name) throw badRequest("Enter your name.");
   const password = String(body.password || "");
@@ -40,7 +42,8 @@ export const POST = handle(async (req: Request, ctx: { params: Promise<{ token: 
     await setPassword(existing.id, password);
     userId = existing.id;
   } else {
-    userId = await createUserWithPassword({ name, email: inv.email, password, status: "active" });
+    // The invitation was emailed to this address, so it counts as confirmed.
+    userId = await createUserWithPassword({ name, email: inv.email, password, status: "active", emailVerified: true });
   }
   await acceptInvitation(inv, userId, name);
   const signIn = await signInResponse(req, inv.email, password);

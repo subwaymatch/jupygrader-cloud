@@ -20,7 +20,7 @@ describe("nbconvertHtml", () => {
     expect(await nbconvertHtml("{}", "HW")).toBeNull();
   });
 
-  it("posts the notebook to the container and streams back the HTML", async () => {
+  it("posts the notebook to the container and returns the HTML", async () => {
     const fetch = vi.fn(async (_url: string, _init: RequestInit) => new Response("<html>ok</html>"));
     const getByName = bind(fetch);
     const html = await nbconvertHtml('{"cells": []}', "HW 1: a.ipynb");
@@ -28,7 +28,36 @@ describe("nbconvertHtml", () => {
     const [url, init] = fetch.mock.calls[0];
     expect(url).toBe("http://nbconvert/convert?title=HW%201%3A%20a.ipynb");
     expect(init).toMatchObject({ method: "POST", body: '{"cells": []}' });
-    expect(await new Response(html).text()).toBe("<html>ok</html>");
+    expect(new TextDecoder().decode(html!)).toBe("<html>ok</html>");
+  });
+
+  it("leaves nothing pending, whatever the container answers", async () => {
+    vi.useFakeTimers();
+    try {
+      for (const reply of [new Response("<html>ok</html>"), new Response("No container is configured.", { status: 503 })]) {
+        bind(async () => reply);
+        await nbconvertHtml("{}", "HW");
+        // A reply left unread, or a time limit still counting, keeps a queue or cron invocation open.
+        expect(reply.bodyUsed).toBe(true);
+        expect(vi.getTimerCount()).toBe(0);
+      }
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("gives up when the container takes longer than the time limit", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      bind((_url, init) => new Promise((_resolve, reject) => init.signal!.addEventListener("abort", () => reject(init.signal!.reason))));
+      const pending = nbconvertHtml("{}", "HW", 5_000);
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(await pending).toBeNull();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("returns null when the conversion fails or the container can't be reached", async () => {

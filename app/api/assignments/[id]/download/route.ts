@@ -1,11 +1,13 @@
 import { zipSync, strToU8 } from "fflate";
 import { requireAssignment, type SubmissionRow } from "@/lib/server/access";
 import { logActivity } from "@/lib/server/activity";
-import { all, inList } from "@/lib/server/db";
+import { all, allIn } from "@/lib/server/db";
 import { badRequest, handle } from "@/lib/server/http";
 import { requireUser } from "@/lib/server/session";
 import { buildDownload, contentDisposition, preferredFormat } from "@/lib/server/submissions";
 import type { DownloadFormat } from "@/lib/shared/document";
+
+const byFileName = (a: SubmissionRow, b: SubmissionRow) => (a.file_name < b.file_name ? -1 : a.file_name > b.file_name ? 1 : 0);
 
 const FORMATS: DownloadFormat[] = ["html", "txt", "ipynb", "src", "doc", "json", "original"];
 
@@ -17,10 +19,13 @@ export const GET = handle(async (req: Request, ctx: { params: Promise<{ id: stri
   const url = new URL(req.url);
   const format = url.searchParams.get("format") || "best";
   if (format !== "best" && !FORMATS.includes(format as DownloadFormat)) throw badRequest("Unknown format.");
-  const ids = (url.searchParams.get("ids") || "").split(",").filter(Boolean);
+  const ids = [...new Set((url.searchParams.get("ids") || "").split(",").filter(Boolean))];
+  if (ids.length > 500) throw badRequest("Download up to 500 files at a time.");
   const rows = ids.length
-    ? await all<SubmissionRow>(`select * from submission where assignment_id = ? and id in (${inList(ids.length)})`, id, ...ids.slice(0, 500))
+    ? await allIn<SubmissionRow>((q) => `select * from submission where assignment_id = ? and id in (${q})`, [id], ids)
     : await all<SubmissionRow>("select * from submission where assignment_id = ? order by file_name", id);
+  // Chunks of a long id list come back one after another, so put them in the order the full list has.
+  if (ids.length) rows.sort(byFileName);
   const list = format === "original" ? rows.filter((r) => r.r2_key) : rows.filter((r) => r.status === "graded");
   if (!list.length) throw badRequest(format === "original" ? "No files to download." : "None of these files are graded yet.");
   if (list.length > 500) throw badRequest("Download up to 500 files at a time.");

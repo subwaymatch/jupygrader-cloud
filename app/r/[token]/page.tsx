@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { StudentNotebook } from "@/components/notebook/NotebookFrame";
 import { NotebookView } from "@/components/notebook/NotebookView";
 import { Icon } from "@/components/ui/Icon";
@@ -26,16 +27,19 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
     if (me && (await getCourseAccess(me, shared.course.id))) back = `/app/submissions/${shared.sub.id}`;
   }
 
-  if (!shared) {
+  // app/r/[token]/not-found.tsx says the link is no longer active, with a 404 status.
+  if (!shared) notFound();
+  // A file flagged for review opens for its student once someone has reviewed it. Course staff can preview it before.
+  if (shared.held && !back) {
     return (
       <div className="student-page">
         <div className="student-wrap">
           <Logo size={24} />
           <div className="student-card" style={{ alignItems: "flex-start" }}>
-            <Mascot pose="sad" size={96} />
-            <h1 className="h1">This link is no longer active</h1>
+            <Mascot pose="reading" size={96} />
+            <h1 className="h1">Your feedback isn&apos;t ready yet</h1>
             <p className="muted" style={{ lineHeight: 1.6 }}>
-              The person who shared it turned it off or replaced it with a new link, or the feedback was deleted. Ask them for the current one.
+              Your instructor is still reviewing this one. Try this link again later.
             </p>
           </div>
         </div>
@@ -58,7 +62,11 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
     <div className="student-page">
       {back && (
         <div className="preview-bar">
-          <span>Preview of the student view. Students see this page without the bar.</span>
+          <span>
+            {shared.held
+              ? "Preview of the student view. The student can't open this link until the file is marked reviewed."
+              : "Preview of the student view. Students see this page without the bar."}
+          </span>
           <Link href={back} className="btn btn--sm" style={{ background: "#334155", color: "#fff" }}>
             Back to grading
           </Link>

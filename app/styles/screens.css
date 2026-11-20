@@ -1789,6 +1789,174 @@
   }
 }
 
+/* ---------- Comparing two files ---------- */
+.cmp-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+}
+.cmp-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 20px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--c-border);
+  background: var(--c-bg-subtle);
+  font-size: 14px;
+}
+.cmp-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--c-text-2);
+}
+.cmp-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+}
+/* The shared lines also carry a bar at their left edge, so the marking doesn't rest on colour alone. */
+.cmp-swatch--same {
+  background: var(--c-warning-100);
+  box-shadow: inset 3px 0 0 var(--c-warning);
+}
+.cmp-swatch--starter {
+  background: var(--c-fill);
+  box-shadow: inset 0 0 0 1px var(--c-border-strong);
+}
+.cmp-cols {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+.cmp-col {
+  min-width: 0;
+  padding: 0 20px 48px;
+}
+.cmp-col + .cmp-col {
+  border-left: 1px solid var(--c-border);
+}
+.cmp-col__head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 -20px 16px;
+  padding: 12px 20px;
+  background: #fff;
+  border-bottom: 1px solid var(--c-border);
+  font-size: 14px;
+}
+.cmp-col__file {
+  font-family: var(--mono);
+  font-size: 13.5px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.cmp-col__count {
+  flex: none;
+  color: var(--c-warning-text);
+  font-weight: 500;
+  text-align: right;
+}
+.cmp-block {
+  margin-bottom: 12px;
+}
+.cmp-block__label {
+  display: block;
+  margin-bottom: 4px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--c-muted);
+}
+.cmp-lines {
+  margin: 0;
+  padding: 8px 0;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  background: var(--c-bg-subtle);
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.cmp-lines--text {
+  background: #fff;
+  font-family: var(--font);
+  font-size: 14px;
+}
+.cmp-line {
+  display: block;
+  padding: 0 12px;
+  border-left: 3px solid transparent;
+}
+.cmp-line--same {
+  background: var(--c-warning-100);
+  border-left-color: var(--c-warning);
+}
+.cmp-line--starter {
+  color: var(--c-muted);
+}
+.cmp-missing {
+  padding: 32px 20px;
+  color: var(--c-text-2);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+}
+@media (max-width: 900px) {
+  .cmp-cols {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cmp-col + .cmp-col {
+    border-left: 0;
+    border-top: 8px solid var(--c-fill);
+  }
+  .cmp-col__head {
+    position: static;
+  }
+}
+
+/* Between the phone layout (cards, below) and a wide window, the sidebar leaves the table little room, and
+   the file name used to get what was left: about 12 characters at 960px. The row actions keep their icons and
+   drop their words (still read out, and shown as tooltips), the narrow columns tighten, and a long name wraps
+   onto a second line instead of being cut off. */
+@media (min-width: 721px) and (max-width: 1100px) {
+  .subs {
+    --cols: 28px minmax(0, 1fr) 104px 72px 112px;
+  }
+  .subs__acts .act__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .subs__acts .act:not(.act--icon) {
+    width: 30px;
+    padding: 0;
+    justify-content: center;
+    color: var(--c-muted);
+  }
+  .subs__name {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+}
+
 @media (max-width: 900px) {
   .asg-tabs {
     margin-top: 18px;

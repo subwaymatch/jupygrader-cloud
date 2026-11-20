@@ -27,6 +27,8 @@ export type AssignmentRow = {
   rubric_method: string;
   rubric_source: string;
   rubric_file: string | null;
+  /** JSON {key, name, size, type}: the file students started from, left out of similarity checks. */
+  starter_file: string | null;
   rubric_rows: string;
   style: string;
   tone: string;
@@ -150,10 +152,13 @@ export async function userCourses(user: Me): Promise<CourseSummary[]> {
         user.id,
       );
   if (!courses.length) return [];
-  const asgs = await all<{ id: string; title: string; course_id: string }>(
-    `select id, title, course_id from assignment where course_id in (${courses.map(() => "?").join(",")}) order by position, created_at`,
-    ...courses.map((c) => c.id),
-  );
+  // The courses are chosen in the query, not listed as parameters: D1 allows 100 parameters, and an admin can have more courses.
+  const asgs = user.isAdmin
+    ? await all<{ id: string; title: string; course_id: string }>("select id, title, course_id from assignment order by position, created_at")
+    : await all<{ id: string; title: string; course_id: string }>(
+        `select id, title, course_id from assignment where course_id in (select course_id from enrollment where user_id = ?) order by position, created_at`,
+        user.id,
+      );
   return courses.map((c) => ({
     id: c.id,
     name: c.name,

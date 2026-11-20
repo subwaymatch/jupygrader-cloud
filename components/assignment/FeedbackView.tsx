@@ -7,6 +7,7 @@ import { flashFrameCell, NotebookFrame } from "@/components/notebook/NotebookFra
 import { cellDomId, NotebookView } from "@/components/notebook/NotebookView";
 import { Button, IconButton } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/Dialog";
+import { regradeConfirm } from "./confirmRegrade";
 import { Input, Textarea } from "@/components/ui/Field";
 import { Icon } from "@/components/ui/Icon";
 import { Mascot } from "@/components/ui/Mascot";
@@ -16,7 +17,7 @@ import { api, copyText, downloadUrl, errorMessage } from "@/lib/client/api";
 import { announceChange, savedOrder } from "@/lib/client/sync";
 import { STATUS, STYLES } from "@/lib/shared/constants";
 import { downloadFormats, labelFor } from "@/lib/shared/document";
-import { fmtAt, fmtScore, fmtTokens, fmtUsd } from "@/lib/shared/format";
+import { fmtAt, fmtScore, fmtTokens, fmtUsd, parseScore } from "@/lib/shared/format";
 import type { SubmissionDetail } from "@/lib/shared/types";
 import { needsReview, reviewReason } from "./SubmissionsTab";
 
@@ -139,6 +140,30 @@ export function FeedbackView({
     }
   }
 
+  /** Replaces the student link. The old one stops working, wherever it was already sent. */
+  async function newLink() {
+    const ok = await confirm({
+      title: "Make a new student link?",
+      body: "The current link stops working straight away. If you already sent it to the student, or posted it to Canvas, they'll need the new one.",
+      cta: "Make a new link",
+      danger: true,
+    });
+    if (ok) await patch({ action: "resetLink" }, "New student link made. The old one no longer works.");
+  }
+
+  /** Saves the total typed into the grade field. An empty or invalid field is an error, not a 0. */
+  async function saveGrade() {
+    const score = parseScore(editGrade);
+    if (score === null) return toast(`Enter a score from 0 to ${d.points}.`, { error: true });
+    if (await patch({ action: "override", score }, "Grade changed")) setEditGrade(null);
+  }
+
+  async function saveCrit(draft: CritDraft, max: number) {
+    const earned = parseScore(draft.earned);
+    if (earned === null) return toast(`Enter a score from 0 to ${max}.`, { error: true });
+    if (await patch({ action: "criterion", index: draft.index, earned, comment: draft.comment, reason: draft.reason }, "Score changed")) setCrit(null);
+  }
+
   async function patch(body: Record<string, unknown>, ok?: string) {
     setBusy(true);
     try {
@@ -163,6 +188,10 @@ export function FeedbackView({
 
   async function act(action: "regrade" | "retry" | "gradeAnyway" | "remove") {
     const sid = d.id;
+    if (action === "regrade") {
+      const ask = regradeConfirm([d]);
+      if (ask && !(await confirm(ask))) return;
+    }
     try {
       await api(`/api/assignments/${d.assignmentId}/actions`, { body: { action, ids: [sid] } });
       toast(action === "remove" ? "Removed" : "Queued for grading");
@@ -181,10 +210,19 @@ export function FeedbackView({
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
       if (t.closest("input, textarea, select, [contenteditable=true]") || e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.key === "j" && next) (e.preventDefault(), go(next));
-      else if (e.key === "k" && prev) (e.preventDefault(), go(prev));
-      else if (e.key === "r") (e.preventDefault(), toggleReviewed());
-      else if (e.key === "e" && d.status === "graded" && canGrade && !loading) (e.preventDefault(), setEditGrade(String(d.score ?? "")));
+      if (e.key === "j" && next) {
+        e.preventDefault();
+        go(next);
+      } else if (e.key === "k" && prev) {
+        e.preventDefault();
+        go(prev);
+      } else if (e.key === "r") {
+        e.preventDefault();
+        toggleReviewed();
+      } else if (e.key === "e" && d.status === "graded" && canGrade && !loading) {
+        e.preventDefault();
+        setEditGrade(String(d.score ?? ""));
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -308,13 +346,16 @@ export function FeedbackView({
                           autoFocus
                           style={{ width: 110, fontSize: 18, height: 42 }}
                           onChange={(e) => setEditGrade(e.target.value)}
-                          onKeyDown={async (e) => {
-                            if (e.key === "Enter" && (await patch({ action: "override", score: +editGrade }, "Grade changed"))) setEditGrade(null);
-                            if (e.key === "Escape") (e.stopPropagation(), setEditGrade(null));
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && !busy) void saveGrade();
+                            if (e.key === "Escape") {
+                              e.stopPropagation();
+                              setEditGrade(null);
+                            }
                           }}
                         />
                         <span className="fb-score__of">/ {d.points}</span>
-                        <Button variant="primary" size="sm" loading={busy} onClick={async () => (await patch({ action: "override", score: +editGrade }, "Grade changed")) && setEditGrade(null)}>
+                        <Button variant="primary" size="sm" loading={busy} onClick={saveGrade}>
                           Save
                         </Button>
                         <Button variant="ghost" size="sm" onClick={() => setEditGrade(null)}>
@@ -346,6 +387,12 @@ export function FeedbackView({
                         <span className="callout__title">Needs review</span>
                         <br />
                         {reviewReason(d)}
+                        {d.nearOf && (
+                          <>
+                            {" "}
+                            <Link href={`/app/submissions/${d.id}/compare?with=${d.nearOf.id}`}>Compare the two files</Link>
+                          </>
+                        )}
                       </span>
                     </div>
                   )}
@@ -450,9 +497,7 @@ export function FeedbackView({
                                 variant="primary"
                                 size="sm"
                                 loading={busy}
-                                onClick={async () => {
-                                  if (await patch({ action: "criterion", index: i, earned: +crit.earned, comment: crit.comment, reason: crit.reason }, "Score changed")) setCrit(null);
-                                }}
+                                onClick={() => saveCrit(crit, c.pts)}
                               >
                                 Save
                               </Button>
@@ -518,7 +563,10 @@ export function FeedbackView({
                         onChange={(e) => setStudent(e.target.value)}
                         onKeyDown={async (e) => {
                           if (e.key === "Enter" && (await patch({ action: "student", name: student }))) setStudent(null);
-                          if (e.key === "Escape") (e.stopPropagation(), setStudent(null));
+                          if (e.key === "Escape") {
+                            e.stopPropagation();
+                            setStudent(null);
+                          }
                         }}
                       />
                       <Button variant="primary" size="sm" onClick={async () => (await patch({ action: "student", name: student })) && setStudent(null)}>
@@ -551,11 +599,17 @@ export function FeedbackView({
                           <Icon name="externalLink" size={15} />
                         </a>
                       </div>
+                      {flagged && (
+                        <p className="callout callout--warn">
+                          <Icon name="flag" size={15} />
+                          <span>The student can&apos;t open this link yet. It opens once this file is marked reviewed.</span>
+                        </p>
+                      )}
                       <span className="field__hint">
                         Anyone with this link can see the score and feedback without signing in. It always shows the latest grade.{" "}
                         {canGrade && (
                           <>
-                            <Button variant="link" onClick={() => patch({ action: "resetLink" }, "New student link made. The old one no longer works.")}>
+                            <Button variant="link" onClick={newLink}>
                               Make a new link
                             </Button>{" "}
                             to stop the old one working.

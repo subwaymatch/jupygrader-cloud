@@ -1,0 +1,31 @@
+name: CI
+
+# Lint, type-check and unit tests on every pull request and on main.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The tests use Node's built-in SQLite as a stand-in for D1, which needs Node 22.13 or later.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # `wrangler types` reads the names of the secrets from .dev.vars; the example file has them all.
+      - run: cp .dev.vars.example .dev.vars
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test

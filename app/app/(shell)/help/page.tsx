@@ -81,7 +81,7 @@ export default async function HelpPage() {
       <div className="callout">
         <Icon name="link" size={15} />
         <span>
-          <strong>Students</strong> don&apos;t have accounts. Each graded file has a student link that shows the score and feedback without signing in.
+          <strong>Students</strong> don&apos;t have accounts. Each graded file has a student link that shows the score and feedback without signing in. A file flagged for review opens for its student once someone marks it reviewed.
         </span>
       </div>
       <section className="section">
