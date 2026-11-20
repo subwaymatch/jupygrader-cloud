@@ -43,6 +43,8 @@ export function AccountForm({
   const [blocked, setBlocked] = useState(false);
   const [busy, setBusy] = useState("");
   const [waitingFor, setWaitingFor] = useState(pendingEmail);
+  const [emailPw, setEmailPw] = useState("");
+  const emailChanged = email.trim().toLowerCase() !== me.email.toLowerCase();
   const [confirmSent, setConfirmSent] = useState(false);
 
   useEffect(() => {
@@ -57,7 +59,11 @@ export function AccountForm({
   async function saveProfile() {
     setBusy("profile");
     try {
-      const r = await api<{ emailPending: string | null; emailed: boolean }>("/api/account", { method: "PATCH", body: { name, email } });
+      const r = await api<{ emailPending: string | null; emailed: boolean }>("/api/account", {
+        method: "PATCH",
+        body: { name, email, password: emailChanged ? emailPw : undefined },
+      });
+      setEmailPw("");
       if (r.emailPending) {
         // The address only changes once the link sent to the new one is opened.
         setWaitingFor(r.emailPending);
@@ -155,13 +161,18 @@ export function AccountForm({
             hint={
               waitingFor
                 ? `Waiting for you to open the link we sent to ${waitingFor}. Until then your email stays as it is.`
-                : email.trim().toLowerCase() !== me.email.toLowerCase()
+                : emailChanged
                   ? "We'll send a link to the new address. Your email changes when you open it."
                   : undefined
             }
           >
             <Input id="ac-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
           </Field>
+          {emailChanged && (
+            <Field label="Current password" htmlFor="ac-email-pw" hint="Needed to change your email.">
+              <Input id="ac-email-pw" type="password" value={emailPw} onChange={(e) => setEmailPw(e.target.value)} autoComplete="current-password" />
+            </Field>
+          )}
         </div>
         {!me.emailVerified && (
           <div className="callout callout--warn">
@@ -176,7 +187,7 @@ export function AccountForm({
           </div>
         )}
         <div>
-          <Button variant="secondary" icon="save" onClick={saveProfile} loading={busy === "profile"} disabled={name === me.name && email === me.email}>
+          <Button variant="secondary" icon="save" onClick={saveProfile} loading={busy === "profile"} disabled={(name === me.name && !emailChanged) || (emailChanged && !emailPw)}>
             Save profile
           </Button>
         </div>

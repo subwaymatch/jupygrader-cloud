@@ -16,6 +16,7 @@ import { AnswerKeys, type KeyFile } from "./AnswerKeys";
 import { GradingSettingsFields, InstructionsField, type AiDefaults, type GradingSettings } from "./Fields";
 import { MismatchDialog, type MismatchChoice } from "./MismatchDialog";
 import { PointsField, RubricEditor, type RubricValue } from "./RubricEditor";
+import { StarterFile, type StarterValue } from "./StarterFile";
 import type { UploadedDoc } from "./uploadDoc";
 
 type CanvasOption = { id: string; name: string; points: number | null; linkedTo: { title: string } | null };
@@ -43,6 +44,7 @@ export function NewAssignmentForm({
   const [taskFile, setTaskFile] = useState<UploadedDoc | null>(null);
   const [rubric, setRubric] = useState<RubricValue>({ method: "none", rows: [], source: "", file: null, points: "" });
   const [keys, setKeys] = useState<KeyFile[]>([]);
+  const [starter, setStarter] = useState<StarterValue>(null);
   const [settings, setSettings] = useState<GradingSettings>({ style: "balanced", tone: "neutral", length: "standard", notes: "", aiImages: null, aiInteractive: null });
   const [error, setError] = useState("");
   const [titleError, setTitleError] = useState("");
@@ -50,7 +52,7 @@ export function NewAssignmentForm({
   const [mismatchOpen, setMismatchOpen] = useState(false);
   // Anything typed or uploaded so far. Creating the assignment moves on without asking.
   useLeaveGuard(
-    !busy && !!(title.trim() || task.trim() || taskFile || rubric.source.trim() || rubric.file || rubric.rows.some((r) => r.name.trim()) || keys.length || settings.notes.trim()),
+    !busy && !!(title.trim() || task.trim() || taskFile || rubric.source.trim() || rubric.file || rubric.rows.some((r) => r.name.trim()) || keys.length || starter || settings.notes.trim()),
     { ...UNSAVED_CHANGES, body: "This assignment hasn't been created yet. What you've entered will be lost if you leave." },
   );
   const mismatch = pointsMismatch(rubric.method, rubric.rows, rubric.points);
@@ -114,6 +116,7 @@ export function NewAssignmentForm({
           rubricRows: r.rows,
           ...settings,
           addAnswerKeys: keys.map((k) => k.key).filter(Boolean),
+          starterFileKey: starter?.key ?? null,
           canvasAssignmentId: canvasPick?.id ?? null,
         },
       });
@@ -198,6 +201,7 @@ export function NewAssignmentForm({
       <PointsField value={rubric.points} onChange={(p) => setRubric({ ...rubric, points: p })} />
       <RubricEditor value={rubric} onChange={setRubric} courseId={courseId} taskText={task} hasTaskFile={!!taskFile} />
       <AnswerKeys files={keys} onChange={setKeys} />
+      <StarterFile value={starter} onChange={setStarter} />
       <hr className="divider" />
       <GradingSettingsFields value={settings} onChange={setSettings} model={model} aiDefaults={aiDefaults} />
       {error && (

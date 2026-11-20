@@ -5,6 +5,7 @@ import { AnswerKeys, type KeyFile } from "@/components/assignments/AnswerKeys";
 import { GradingSettingsFields, InstructionsField, type AiDefaults, type GradingSettings } from "@/components/assignments/Fields";
 import { MismatchDialog, type MismatchChoice } from "@/components/assignments/MismatchDialog";
 import { PointsField, RubricEditor, type RubricValue } from "@/components/assignments/RubricEditor";
+import { StarterFile, type StarterValue } from "@/components/assignments/StarterFile";
 import type { UploadedDoc } from "@/components/assignments/uploadDoc";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
@@ -41,6 +42,26 @@ async function save(asgId: string, body: Record<string, unknown>): Promise<Assig
   } catch (err) {
     toast(errorMessage(err), { error: true });
     return null;
+  }
+}
+
+/**
+ * After the starter file changes, the files already uploaded are compared again without its code.
+ * The server does a batch per request, so this asks until it's done.
+ */
+async function recheckSimilarity(assignmentId: string) {
+  try {
+    let after: string | null = null;
+    for (;;) {
+      const r: { next: string | null; total: number } = await api(`/api/assignments/${assignmentId}/similarity`, { body: { after } });
+      if (!r.next) {
+        if (r.total) toast("Close matches updated for the files already uploaded");
+        return;
+      }
+      after = r.next;
+    }
+  } catch (err) {
+    toast(`The starter file is saved, but the files already uploaded couldn't be compared again: ${errorMessage(err)}`, { error: true, timeout: 9000 });
   }
 }
 
@@ -127,11 +148,13 @@ export function RubricTab({ asg, canEdit, onSaved }: { asg: AssignmentData; canE
   const [editing, setEditing] = useState(false);
   const [rubric, setRubric] = useState<RubricValue>(initial);
   const [keys, setKeys] = useState<KeyFile[]>(asg.answerKeys);
+  const [starter, setStarter] = useState<StarterValue>(asg.starterFile);
   const [busy, setBusy] = useState(false);
   const [mismatchOpen, setMismatchOpen] = useState(false);
+  const starterChanged = (starter?.key ?? null) !== (asg.starterFile?.key ?? null);
   const mismatch = pointsMismatch(rubric.method, rubric.rows, rubric.points);
   // Edits to the rubric or the answer keys that Save hasn't sent yet.
-  useLeaveGuard(editing && (JSON.stringify(rubric) !== JSON.stringify(initial) || JSON.stringify(keys) !== JSON.stringify(asg.answerKeys)));
+  useLeaveGuard(editing && (JSON.stringify(rubric) !== JSON.stringify(initial) || JSON.stringify(keys) !== JSON.stringify(asg.answerKeys) || starterChanged));
   const rows = asg.rubricMethod === "none" ? [] : asg.rubricRows.filter((r) => r.name.trim());
   const sum = rows.reduce((a, r) => a + (+r.pts || 0), 0);
 
@@ -153,12 +176,15 @@ export function RubricTab({ asg, canEdit, onSaved }: { asg: AssignmentData; canE
       rubricRows: r.rows,
       addAnswerKeys: keys.filter((k) => !k.id && k.key).map((k) => k.key),
       removeAnswerKeys: asg.answerKeys.filter((k) => !keys.some((x) => x.id === k.id)).map((k) => k.id).filter((id) => existing.has(id)),
+      ...(starterChanged ? { starterFileKey: starter?.key ?? null } : {}),
     });
+    if (res && starterChanged) await recheckSimilarity(asg.id);
     setBusy(false);
     if (res) {
       onSaved(res);
       setRubric({ method: res.rubricMethod, rows: res.rubricRows, source: res.rubricSource, file: res.rubricFile, points: String(res.points) });
       setKeys(res.answerKeys);
+      setStarter(res.starterFile);
       setEditing(false);
     }
   }
@@ -223,17 +249,32 @@ export function RubricTab({ asg, canEdit, onSaved }: { asg: AssignmentData; canE
             )}
             {asg.answerKeys.length > 0 && <span className="field__hint">Never shown to students or included in feedback.</span>}
           </div>
+          {asg.starterFile && (
+            <div className="stack" style={{ gap: 8, marginTop: 8 }}>
+              <h3 className="h2" style={{ fontSize: 14 }}>
+                Starter file
+              </h3>
+              <div className="file-chip">
+                <Icon name="file" size={16} />
+                <span className="file-chip__name">{asg.starterFile.name}</span>
+                <span className="muted">{fmtSize(asg.starterFile.size)}</span>
+              </div>
+              <span className="field__hint">Its code is ignored when submissions are compared with each other.</span>
+            </div>
+          )}
         </>
       ) : (
         <>
           <PointsField value={rubric.points} onChange={(p) => setRubric({ ...rubric, points: p })} />
           <RubricEditor value={rubric} onChange={setRubric} courseId={asg.courseId} assignmentId={asg.id} taskText={asg.taskText} hasTaskFile={!!asg.taskFile} />
           <AnswerKeys files={keys} onChange={setKeys} />
+          <StarterFile value={starter} onChange={setStarter} />
           <SaveBar
             busy={busy}
             onCancel={() => {
               setRubric(initial);
               setKeys(asg.answerKeys);
+              setStarter(asg.starterFile);
               setEditing(false);
             }}
             onSave={() => doSave()}

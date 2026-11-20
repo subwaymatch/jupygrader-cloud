@@ -210,10 +210,19 @@ export function FeedbackView({
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
       if (t.closest("input, textarea, select, [contenteditable=true]") || e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.key === "j" && next) (e.preventDefault(), go(next));
-      else if (e.key === "k" && prev) (e.preventDefault(), go(prev));
-      else if (e.key === "r") (e.preventDefault(), toggleReviewed());
-      else if (e.key === "e" && d.status === "graded" && canGrade && !loading) (e.preventDefault(), setEditGrade(String(d.score ?? "")));
+      if (e.key === "j" && next) {
+        e.preventDefault();
+        go(next);
+      } else if (e.key === "k" && prev) {
+        e.preventDefault();
+        go(prev);
+      } else if (e.key === "r") {
+        e.preventDefault();
+        toggleReviewed();
+      } else if (e.key === "e" && d.status === "graded" && canGrade && !loading) {
+        e.preventDefault();
+        setEditGrade(String(d.score ?? ""));
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -339,7 +348,10 @@ export function FeedbackView({
                           onChange={(e) => setEditGrade(e.target.value)}
                           onKeyDown={(e) => {
                             if (e.key === "Enter" && !busy) void saveGrade();
-                            if (e.key === "Escape") (e.stopPropagation(), setEditGrade(null));
+                            if (e.key === "Escape") {
+                              e.stopPropagation();
+                              setEditGrade(null);
+                            }
                           }}
                         />
                         <span className="fb-score__of">/ {d.points}</span>
@@ -375,6 +387,12 @@ export function FeedbackView({
                         <span className="callout__title">Needs review</span>
                         <br />
                         {reviewReason(d)}
+                        {d.nearOf && (
+                          <>
+                            {" "}
+                            <Link href={`/app/submissions/${d.id}/compare?with=${d.nearOf.id}`}>Compare the two files</Link>
+                          </>
+                        )}
                       </span>
                     </div>
                   )}
@@ -545,7 +563,10 @@ export function FeedbackView({
                         onChange={(e) => setStudent(e.target.value)}
                         onKeyDown={async (e) => {
                           if (e.key === "Enter" && (await patch({ action: "student", name: student }))) setStudent(null);
-                          if (e.key === "Escape") (e.stopPropagation(), setStudent(null));
+                          if (e.key === "Escape") {
+                            e.stopPropagation();
+                            setStudent(null);
+                          }
                         }}
                       />
                       <Button variant="primary" size="sm" onClick={async () => (await patch({ action: "student", name: student })) && setStudent(null)}>
@@ -578,6 +599,12 @@ export function FeedbackView({
                           <Icon name="externalLink" size={15} />
                         </a>
                       </div>
+                      {flagged && (
+                        <p className="callout callout--warn">
+                          <Icon name="flag" size={15} />
+                          <span>The student can&apos;t open this link yet. It opens once this file is marked reviewed.</span>
+                        </p>
+                      )}
                       <span className="field__hint">
                         Anyone with this link can see the score and feedback without signing in. It always shows the latest grade.{" "}
                         {canGrade && (

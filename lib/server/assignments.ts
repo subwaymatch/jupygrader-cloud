@@ -32,6 +32,7 @@ export async function assignmentData(a: AssignmentRow): Promise<AssignmentData> 
     aiInteractive: cleanOutputPolicy(parseJson(a.ai_interactive, null)),
     version: a.version,
     answerKeys: keys,
+    starterFile: strip(parseJson<StoredFile | null>(a.starter_file, null)),
     canvas: a.canvas_assignment_id ? { id: a.canvas_assignment_id, name: a.canvas_assignment_name || "", points: a.canvas_points } : null,
   };
 }
@@ -67,6 +68,7 @@ export type AssignmentInput = {
   aiInteractive?: OutputPolicy | null;
   addAnswerKeys?: string[];
   removeAnswerKeys?: string[];
+  starterFileKey?: string | null;
   /** On creation: the Canvas assignment to link it to. */
   canvasAssignmentId?: string | null;
 };
@@ -104,6 +106,15 @@ export async function assignmentColumns(input: AssignmentInput, userId: string, 
         if (!ownsDocKey(input.taskFileKey, userId)) throw badRequest("Upload the instructions document again.");
         cols.task_file = JSON.stringify(await storedFileFromKey(input.taskFileKey));
       }
+    }
+  }
+  if (input.starterFileKey !== undefined) {
+    if (input.starterFileKey === null) cols.starter_file = null;
+    else if (parseJson<StoredFile | null>(existing?.starter_file ?? null, null)?.key !== input.starterFileKey) {
+      if (!ownsDocKey(input.starterFileKey, userId)) throw badRequest("Upload the starter file again.");
+      // Only where the file is. Its text isn't sent to the AI, so it isn't kept on the row like the instructions' is.
+      const { key, name, size, type } = await storedFileFromKey(input.starterFileKey);
+      cols.starter_file = JSON.stringify({ key, name, size, type });
     }
   }
   if (input.notes !== undefined) cols.notes = String(input.notes).slice(0, 5000);
@@ -166,8 +177,13 @@ export async function assignmentColumns(input: AssignmentInput, userId: string, 
   return { cols, gradingChanged };
 }
 
-export async function applyAnswerKeys(assignmentId: string, userId: string, add: string[] = [], remove: string[] = []) {
-  for (const id of remove) await run("delete from answer_key where id = ? and assignment_id = ?", id, assignmentId);
+/** Adds and removes answer keys. Returns the documents of the removed ones, to delete if nothing else uses them. */
+export async function applyAnswerKeys(assignmentId: string, userId: string, add: string[] = [], remove: string[] = []): Promise<string[]> {
+  const removed: string[] = [];
+  for (const id of remove) {
+    const k = await first<{ r2_key: string }>("delete from answer_key where id = ? and assignment_id = ? returning r2_key", id, assignmentId);
+    if (k) removed.push(k.r2_key);
+  }
   for (const key of add) {
     if (!ownsDocKey(key, userId)) throw badRequest("Upload the answer key again.");
     const f = await storedFileFromKey(key);
@@ -183,6 +199,7 @@ export async function applyAnswerKeys(assignmentId: string, userId: string, add:
       new Date().toISOString(),
     );
   }
+  return removed;
 }
 
 export async function nextPosition(courseId: string): Promise<number> {

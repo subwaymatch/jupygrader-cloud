@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { Button, IconButton } from "@/components/ui/Button";
+import { IconButton } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/Dialog";
 import { useConfirmLeave } from "@/components/ui/LeaveGuard";
 import { regradeConfirm } from "./confirmRegrade";

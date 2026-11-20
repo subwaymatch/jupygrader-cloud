@@ -1,12 +1,11 @@
-import { requireAssignment, type SubmissionRow } from "@/lib/server/access";
+import { requireAssignment } from "@/lib/server/access";
 import { logActivity } from "@/lib/server/activity";
-import { all } from "@/lib/server/db";
-import { enqueueGrading } from "@/lib/server/grading";
+import { kickGrading } from "@/lib/server/grading";
 import { badRequest, handle } from "@/lib/server/http";
 import { queueInfo } from "@/lib/server/queue-info";
 import { requireUser } from "@/lib/server/session";
 import { getSettings } from "@/lib/server/settings";
-import { createSubmission, toListItem } from "@/lib/server/submissions";
+import { createSubmission, listRows, toListItem } from "@/lib/server/submissions";
 import { MAX_UPLOAD_BYTES } from "@/lib/shared/constants";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -15,7 +14,7 @@ export const GET = handle(async (req: Request, ctx: Ctx) => {
   const me = await requireUser(req);
   const { id } = await ctx.params;
   const { asg } = await requireAssignment(me, id, "view");
-  const rows = await all<SubmissionRow>("select * from submission where assignment_id = ? order by uploaded_at desc, file_name", id);
+  const rows = await listRows(id);
   const settings = await getSettings();
   return Response.json({
     items: rows.map((r) => toListItem(r, asg, settings.model)),
@@ -44,7 +43,7 @@ export const POST = handle(async (req: Request, ctx: Ctx) => {
     batchId,
     regradeDuplicates: regrade,
   });
-  if (queued) await enqueueGrading([row.id]);
+  if (queued) await kickGrading();
   if (form.get("last") === "1") {
     const n = Number(form.get("count") || 1);
     await logActivity({ type: "grading", user: me, courseId: course.id, text: `Uploaded ${n} file${n === 1 ? "" : "s"} to ${asg.title}` });

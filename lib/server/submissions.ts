@@ -22,12 +22,12 @@ import type {
   Usage,
 } from "@/lib/shared/types";
 import type { AssignmentRow, CourseRow, SubmissionRow } from "./access";
-import { all, first, parseJson, run } from "./db";
+import { all, batch, first, parseJson, run, stmt } from "./db";
 import { appUrl, getEnv } from "./env";
 import { badRequest } from "./http";
 import { newId, newShareToken, sha256Hex } from "./ids";
 import { hasNbconvert, nbconvertHtml } from "./nbconvert";
-import { NEAR_THRESHOLD, minhash, similarity } from "./similarity";
+import { NEAR_THRESHOLD, minhash, shingles, similarity } from "./similarity";
 import { getBytes, notebookHtmlKey, putFile, submissionDoc, submissionKey } from "./storage";
 
 export function isOutdated(row: Pick<SubmissionRow, "graded_meta">, asg: Pick<AssignmentRow, "version" | "style">, model?: string) {
@@ -36,10 +36,75 @@ export function isOutdated(row: Pick<SubmissionRow, "graded_meta">, asg: Pick<As
   return g.rubricVersion !== asg.version || g.style !== asg.style || (!!model && g.model !== model);
 }
 
-export function toListItem(row: SubmissionRow, asg: AssignmentRow, model?: string): SubmissionListItem {
+/**
+ * What the submissions table shows for one file. The list is reloaded every few seconds while files are
+ * grading, so it's read without the big columns: the full result, the history and the fingerprint. The
+ * few values the table needs from the result are picked out by the database.
+ */
+export type ListRow = Pick<
+  SubmissionRow,
+  | "id"
+  | "file_name"
+  | "student"
+  | "status"
+  | "note"
+  | "kind"
+  | "sha256"
+  | "size"
+  | "score"
+  | "ai_score"
+  | "overridden"
+  | "near_of"
+  | "reviewed"
+  | "reviewed_by"
+  | "graded_meta"
+  | "uploaded_at"
+  | "graded_at"
+  | "share_token"
+  | "share_off"
+  | "cost_usd"
+  | "canvas_user_id"
+  | "canvas_attempt"
+  | "canvas_posted_at"
+  | "canvas_posted_score"
+> & {
+  confidence: string | null;
+  low_reason: string | null;
+  /** JSON number[]: points earned on each rubric line. Null when there is no result. */
+  crit: string | null;
+  tokens: number | null;
+};
+
+const LIST_COLUMNS = `id, file_name, student, status, note, kind, sha256, size, score, ai_score, overridden, near_of, reviewed, reviewed_by,
+  graded_meta, uploaded_at, graded_at, share_token, share_off, cost_usd, canvas_user_id, canvas_attempt, canvas_posted_at, canvas_posted_score,
+  json_extract(result, '$.confidence') confidence,
+  json_extract(result, '$.lowReason') low_reason,
+  case when result is null then null
+       else (select json_group_array(json_extract(c.value, '$.earned')) from json_each(submission.result, '$.criteria') c) end crit,
+  coalesce(json_extract(usage, '$.input'), 0) + coalesce(json_extract(usage, '$.output'), 0) tokens`;
+
+/** An assignment's files for the submissions table, newest first. */
+export function listRows(assignmentId: string): Promise<ListRow[]> {
+  return all<ListRow>(`select ${LIST_COLUMNS} from submission where assignment_id = ? order by uploaded_at desc, file_name`, assignmentId);
+}
+
+/** The same values from a row that was read whole. */
+function listRow(row: SubmissionRow): ListRow {
   const result = parseJson<GradeResult | null>(row.result, null);
   const usage = parseJson<Usage | null>(row.usage, null);
+  return {
+    ...row,
+    confidence: result?.confidence ?? null,
+    low_reason: result?.lowReason ?? null,
+    crit: result ? JSON.stringify(result.criteria.map((c) => c.earned)) : null,
+    tokens: usage ? usage.input + usage.output : 0,
+  };
+}
+
+export function toListItem(from: ListRow | SubmissionRow, asg: Pick<AssignmentRow, "version" | "style">, model?: string): SubmissionListItem {
+  const row = "result" in from ? listRow(from) : from;
   const graded = row.status === "graded";
+  const crit = parseJson<number[] | null>(row.crit, null);
   return {
     id: row.id,
     file: row.file_name,
@@ -52,8 +117,8 @@ export function toListItem(row: SubmissionRow, asg: AssignmentRow, model?: strin
     score: graded ? row.score : null,
     aiScore: graded ? row.ai_score : null,
     overridden: !!row.overridden,
-    confidence: graded ? (result?.confidence ?? null) : null,
-    lowReason: result?.lowReason ?? "",
+    confidence: graded && (row.confidence === "low" || row.confidence === "high") ? row.confidence : null,
+    lowReason: row.low_reason ?? "",
     nearOf: parseJson<NearOf | null>(row.near_of, null),
     reviewed: !!row.reviewed,
     reviewedBy: row.reviewed_by,
@@ -62,8 +127,8 @@ export function toListItem(row: SubmissionRow, asg: AssignmentRow, model?: strin
     gradedAt: row.graded_at,
     shareOn: graded && !row.share_off && !!row.share_token,
     shareToken: graded && !row.share_off ? row.share_token : null,
-    crit: graded && result ? result.criteria.map((c) => c.earned) : null,
-    tokens: usage ? usage.input + usage.output : 0,
+    crit: graded ? crit : null,
+    tokens: row.tokens || 0,
     costUsd: row.cost_usd || 0,
     canvas: row.canvas_user_id
       ? { userId: row.canvas_user_id, attempt: row.canvas_attempt, postedAt: row.canvas_posted_at, postedScore: row.canvas_posted_score }
@@ -114,7 +179,8 @@ export async function findDuplicate(assignmentId: string, sha256: string): Promi
   return r ? { file: r.file_name } : null;
 }
 
-function fingerprintText(file: string, bytes: Uint8Array): string {
+/** The part of a file that's compared between submissions: a notebook's code, or a code or text file's text. */
+export function fingerprintText(file: string, bytes: Uint8Array): string {
   const kind = kindOf(file);
   if (kind === "notebook") {
     try {
@@ -131,6 +197,83 @@ function fingerprintText(file: string, bytes: Uint8Array): string {
   }
   if (kind === "code" || (kind === "doc" && ["md", "txt", "tex"].includes(extOf(file)))) return new TextDecoder().decode(bytes);
   return "";
+}
+
+// The starter file's shingles, by its storage key. A starter is read once per Worker instance, not once per upload.
+const starterCache = new Map<string, Set<string>>();
+
+/** Runs of tokens from the assignment's starter file, which are left out when its submissions are compared. */
+export async function starterShingles(asg: Pick<AssignmentRow, "starter_file">): Promise<Set<string> | undefined> {
+  const f = parseJson<{ key: string; name: string } | null>(asg.starter_file, null);
+  if (!f?.key) return undefined;
+  let set = starterCache.get(f.key);
+  if (!set) {
+    const bytes = await getBytes(f.key);
+    set = bytes ? shingles(fingerprintText(f.name, bytes)) : new Set<string>();
+    if (starterCache.size > 50) starterCache.clear();
+    starterCache.set(f.key, set);
+  }
+  return set;
+}
+
+const RECHECK_BATCH = 20;
+
+/**
+ * Makes the fingerprints of an assignment's files again, a batch per call, after its starter file
+ * changed. Returns where to continue from, or null once every file is done and the close matches
+ * have been worked out again. The page calls it until then, so a large class stays within a
+ * Worker's limits.
+ */
+export async function recheckSimilarity(asg: AssignmentRow, after: string | null): Promise<{ next: string | null; done: number; total: number }> {
+  const total = (await first<{ n: number }>("select count(*) n from submission where assignment_id = ?", asg.id))?.n ?? 0;
+  const rows = await all<{ id: string; file_name: string; r2_key: string | null }>(
+    "select id, file_name, r2_key from submission where assignment_id = ? and id > ? order by id limit ?",
+    asg.id,
+    after ?? "",
+    RECHECK_BATCH,
+  );
+  const exclude = await starterShingles(asg);
+  for (const r of rows) {
+    const bytes = r.r2_key ? await getBytes(r.r2_key) : null;
+    // A file that is no longer stored keeps the fingerprint it has.
+    if (!bytes) continue;
+    const sig = minhash(fingerprintText(r.file_name, bytes), exclude);
+    await run("update submission set minhash = ? where id = ?", sig ? JSON.stringify(sig) : null, r.id);
+  }
+  const before = (await first<{ n: number }>("select count(*) n from submission where assignment_id = ? and id <= ?", asg.id, rows.at(-1)?.id ?? after ?? ""))?.n ?? 0;
+  if (rows.length === RECHECK_BATCH) return { next: rows[rows.length - 1].id, done: before, total };
+  await recomputeNearOf(asg.id);
+  return { next: null, done: total, total };
+}
+
+/** Works out each file's closest match again from the stored fingerprints, the way an upload does: against the files that were there before it. */
+export async function recomputeNearOf(assignmentId: string): Promise<void> {
+  const rows = await all<{ id: string; file_name: string; sha256: string; status: string; minhash: string | null; near_of: string | null }>(
+    "select id, file_name, sha256, status, minhash, near_of from submission where assignment_id = ? and status != 'cancelled' order by uploaded_at, id",
+    assignmentId,
+  );
+  const sigs = rows.map((r) => parseJson<number[] | null>(r.minhash, null));
+  const changes: D1PreparedStatement[] = [];
+  rows.forEach((r, i) => {
+    let near: NearOf | null = null;
+    const sig = sigs[i];
+    // An exact duplicate that was skipped is already marked as one.
+    if (sig && r.status !== "skipped") {
+      let best = 0;
+      for (let j = 0; j < i; j++) {
+        const other = sigs[j];
+        if (!other || rows[j].sha256 === r.sha256) continue;
+        const sim = similarity(sig, other);
+        if (sim > best) {
+          best = sim;
+          if (sim >= NEAR_THRESHOLD) near = { id: rows[j].id, file: rows[j].file_name, pct: Math.round(sim * 100) };
+        }
+      }
+    }
+    const value = near ? JSON.stringify(near) : null;
+    if (value !== r.near_of) changes.push(stmt("update submission set near_of = ? where id = ?", value, r.id));
+  });
+  await batch(changes);
 }
 
 export async function createSubmission(opts: {
@@ -153,7 +296,7 @@ export async function createSubmission(opts: {
   const contentType = file.type || "application/octet-stream";
   await putFile(key, bytes, contentType);
 
-  const sig = minhash(fingerprintText(fileName, bytes));
+  const sig = minhash(fingerprintText(fileName, bytes), await starterShingles(asg));
   let nearOf: NearOf | null = null;
   if (sig && !dup) {
     const others = await all<{ id: string; file_name: string; minhash: string }>(

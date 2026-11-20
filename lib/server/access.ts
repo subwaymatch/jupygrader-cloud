@@ -27,6 +27,8 @@ export type AssignmentRow = {
   rubric_method: string;
   rubric_source: string;
   rubric_file: string | null;
+  /** JSON {key, name, size, type}: the file students started from, left out of similarity checks. */
+  starter_file: string | null;
   rubric_rows: string;
   style: string;
   tone: string;

@@ -90,6 +90,8 @@ export type AssignmentData = {
   aiInteractive: OutputPolicy | null;
   version: number;
   answerKeys: { id: string; name: string; size: number }[];
+  /** The file students started from. Its code is left out when submissions are compared with each other. */
+  starterFile: StoredFile | null;
   /** The Canvas assignment this one is linked to. */
   canvas: CanvasAssignmentLink | null;
 };

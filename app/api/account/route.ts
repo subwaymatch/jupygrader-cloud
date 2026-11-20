@@ -1,4 +1,4 @@
-import { EMAIL_RE, normEmail } from "@/lib/server/accounts";
+import { EMAIL_RE, normEmail, passwordMatches } from "@/lib/server/accounts";
 import { logActivity } from "@/lib/server/activity";
 import { first, run } from "@/lib/server/db";
 import { requestEmailChange } from "@/lib/server/email-confirm";
@@ -8,12 +8,9 @@ import { requireUser } from "@/lib/server/session";
 
 export const PATCH = handle(async (req: Request) => {
   const me = await requireUser(req);
-  const b = await readJson<{ name?: string; email?: string; notifyEmail?: boolean }>(req);
-  if (b.name !== undefined) {
-    const n = String(b.name).trim();
-    if (!n) throw badRequest("Enter your name.");
-    await run(`update "user" set name = ?, "updatedAt" = ? where id = ?`, n.slice(0, 120), new Date().toISOString(), me.id);
-  }
+  const b = await readJson<{ name?: string; email?: string; password?: string; notifyEmail?: boolean }>(req);
+  const newName = b.name === undefined ? null : String(b.name).trim();
+  if (newName === "") throw badRequest("Enter your name.");
   // The address changes only once the link sent to the new one is opened (lib/server/email-confirm.ts).
   let emailPending: string | null = null;
   let emailed = false;
@@ -22,10 +19,14 @@ export const PATCH = handle(async (req: Request) => {
     if (!EMAIL_RE.test(e)) throw badRequest("Enter a valid email address.");
     if (e !== me.email.toLowerCase()) {
       await limit(`change-email:${me.id}`, { window: 3600, max: 5 }, "You've asked to change your email several times already.");
+      // The email address is how an account is recovered, so changing it takes the password, not just a signed-in browser.
+      if (!b.password) throw badRequest("Enter your current password to change your email.");
+      if (!(await passwordMatches(me.id, String(b.password)))) throw badRequest("That isn't your current password.");
       emailed = (await requestEmailChange(me, e, req)).sent;
       emailPending = e;
     }
   }
+  if (newName) await run(`update "user" set name = ?, "updatedAt" = ? where id = ?`, newName.slice(0, 120), new Date().toISOString(), me.id);
   if (b.notifyEmail !== undefined) await run(`update "user" set "notifyEmail" = ? where id = ?`, !!b.notifyEmail, me.id);
   return Response.json({ ok: true, emailPending, emailed });
 });

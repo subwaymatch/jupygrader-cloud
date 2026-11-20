@@ -1,13 +1,13 @@
 import { notFound, redirect } from "next/navigation";
 import { AssignmentView } from "@/components/assignment/AssignmentView";
-import { getCourseAccess, type AssignmentRow, type SubmissionRow } from "@/lib/server/access";
+import { getCourseAccess, type AssignmentRow } from "@/lib/server/access";
 import { assignmentData } from "@/lib/server/assignments";
 import { canvasStatus } from "@/lib/server/canvas";
-import { all, first } from "@/lib/server/db";
+import { first } from "@/lib/server/db";
 import { queueInfo } from "@/lib/server/queue-info";
 import { pageUser } from "@/lib/server/session";
 import { getSettings } from "@/lib/server/settings";
-import { toListItem } from "@/lib/server/submissions";
+import { listRows, toListItem } from "@/lib/server/submissions";
 
 export default async function AssignmentPage({
   params,
@@ -27,7 +27,7 @@ export default async function AssignmentPage({
   if (!asg) notFound();
   const [data, rows, settings, queue, canvas] = await Promise.all([
     assignmentData(asg),
-    all<SubmissionRow>("select * from submission where assignment_id = ? order by uploaded_at desc, file_name", assignmentId),
+    listRows(assignmentId),
     getSettings(),
     queueInfo(),
     canvasStatus(me.id),

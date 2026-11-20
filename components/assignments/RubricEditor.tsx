@@ -284,8 +284,14 @@ export function RubricEditor({
                     setDragOver(null);
                   }}
                   onKeyDown={(e) => {
-                    if (e.key === "ArrowUp") (e.preventDefault(), moveRow(i, i - 1));
-                    if (e.key === "ArrowDown") (e.preventDefault(), moveRow(i, i + 1));
+                    if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      moveRow(i, i - 1);
+                    }
+                    if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      moveRow(i, i + 1);
+                    }
                   }}
                   title="Drag to reorder. Arrow keys also work."
                   aria-label={`Reorder ${r.name || "item " + (i + 1)}`}

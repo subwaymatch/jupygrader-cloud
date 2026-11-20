@@ -38,6 +38,8 @@ export function useSubmissions(assignmentId: string, initial: ListResponse, onBa
   useEffect(() => onChange(assignmentId, () => void refresh()), [assignmentId, refresh]);
 
   const active = data.items.some((s) => s.status === "queued" || s.status === "grading") || uploading > 0;
+  const pausedRef = useRef(false);
+  pausedRef.current = !!data.queue.paused && uploading === 0 && !data.items.some((s) => s.status === "grading");
 
   useEffect(() => {
     if (timer.current) clearTimeout(timer.current);
@@ -46,7 +48,8 @@ export function useSubmissions(assignmentId: string, initial: ListResponse, onBa
       const visible = document.visibilityState === "visible";
       // In the background the page only keeps checking when it has a notification to show at the end, and then less often.
       if (visible || browserNotifyOn()) void refresh();
-      timer.current = setTimeout(tick, visible ? POLL_MS : HIDDEN_POLL_MS);
+      // Nothing moves while grading is paused (no API key, or the spending cap), so there's less to check for.
+      timer.current = setTimeout(tick, visible && !pausedRef.current ? POLL_MS : HIDDEN_POLL_MS);
     };
     timer.current = setTimeout(tick, POLL_MS);
     // Catch up as soon as the page is looked at again.

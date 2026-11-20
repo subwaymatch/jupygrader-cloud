@@ -60,6 +60,15 @@ export async function setPassword(userId: string, password: string) {
   else await ctx.internalAdapter.linkAccount({ userId, providerId: "credential", accountId: userId, password: hash });
 }
 
+/** Whether `password` is the account's current password. False for an account that has none. */
+export async function passwordMatches(userId: string, password: string): Promise<boolean> {
+  if (!password) return false;
+  const row = await first<{ password: string | null }>("select password from account where userId = ? and providerId = 'credential'", userId);
+  if (!row?.password) return false;
+  const ctx = await getAuth().$context;
+  return ctx.password.verify({ hash: row.password, password });
+}
+
 /** Signs in with email and password and returns better-auth's response (with session cookies). */
 export async function signInResponse(req: Request, email: string, password: string): Promise<Response> {
   return getAuth().api.signInEmail({ body: { email: normEmail(email), password }, headers: req.headers, asResponse: true });

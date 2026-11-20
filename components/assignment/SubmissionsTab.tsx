@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Controls";
 import { useConfirm } from "@/components/ui/Dialog";
 import { useUnloadWarning } from "@/components/ui/LeaveGuard";
+import { needsReview } from "@/lib/shared/review";
 import { regradeConfirm } from "./confirmRegrade";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { EmptyState, Mascot } from "@/components/ui/Mascot";
@@ -24,7 +25,7 @@ type Tab = "all" | "progress" | "graded" | "review" | "failed" | "skipped";
 type SortKey = "uploaded" | "file" | "status" | "grade";
 type ReviewFilter = "needs" | "reviewed" | "unreviewed" | "edited" | "outdated";
 
-export const needsReview = (s: SubmissionListItem) => s.status === "graded" && !s.reviewed && (s.confidence === "low" || !!s.nearOf);
+export { needsReview };
 const isActive = (s: SubmissionListItem) => s.status === "queued" || s.status === "grading";
 
 export function reviewReason(s: SubmissionListItem): string {
@@ -278,7 +279,15 @@ export function SubmissionsTab({
   function rowMenu(s: SubmissionListItem): MenuEntry[] {
     const out: MenuEntry[] = [{ label: s.status === "graded" ? "Open feedback" : "Open file", icon: "eye", onClick: () => openFile(s.id) }];
     if (s.shareToken)
-      out.push({ label: "Copy student link", icon: "link", onClick: async () => toast((await copyText(studentLink(s))) ? "Student link copied" : "Couldn't copy the link") });
+      out.push({
+        label: "Copy student link",
+        icon: "link",
+        onClick: async () => {
+          if (!(await copyText(studentLink(s)))) return toast("Couldn't copy the link", { error: true });
+          toast(needsReview(s) ? "Student link copied. The student can't open it until this file is marked reviewed." : "Student link copied", needsReview(s) ? { timeout: 7000 } : {});
+        },
+      });
+    if (s.nearOf) out.push({ label: "Compare with its close match", icon: "copy", onClick: () => window.open(`/app/submissions/${s.id}/compare?with=${s.nearOf!.id}`, "_blank", "noopener") });
     if (canGrade) {
       if (s.status === "graded" || s.status === "cancelled") out.push({ label: "Regrade", icon: "refresh", onClick: () => act("regrade", [s.id], () => "Queued for regrading") });
       if (s.status === "queued") out.push({ label: "Cancel", icon: "ban", onClick: () => act("cancel", [s.id], () => "Cancelled") });

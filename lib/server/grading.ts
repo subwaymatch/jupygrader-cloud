@@ -248,21 +248,89 @@ export function normalizeGrade(raw: RawGrade, rows: RubricRow[], points: number,
   return { result, score: scoreFrom(criteria, points) };
 }
 
-export async function enqueueGrading(ids: string[]): Promise<void> {
-  const q = getEnv().GRADING_QUEUE;
-  if (!q || !ids.length) return;
-  for (let i = 0; i < ids.length; i += 100) {
-    await q.sendBatch(ids.slice(i, i + 100).map((id) => ({ body: { submissionId: id } })));
-  }
-}
+// How files move through grading
+//
+// The database is the queue: a file waits with status 'queued' and is graded in the order of its
+// queued_at. A message on the Cloudflare Queue carries no file. It's a wake-up: its consumer claims
+// the file that has waited longest, if grading isn't paused and a slot is free, and otherwise does
+// nothing. A consumer that finishes a file sends the next wake-up itself, and the every-minute cron
+// sends them whenever files wait while slots are free, so nothing depends on a message surviving.
+// (Messages used to name one file each and retry every 10 to 20 seconds while they waited their turn;
+// after 100 retries, about 25 minutes, the queue dropped them, and a large batch stalled.)
 
+/** Time limit for making a notebook's HTML straight after grading. If it runs out, the feedback page makes it on the first visit. */
+const RENDER_AFTER_GRADING_MS = 45_000;
 const STALE_MS = 15 * 60 * 1000;
 /** How many times a file is sent to the AI before a retryable error becomes a failure. */
 const MAX_ATTEMPTS = 3;
-/** Time limit for making a notebook's HTML straight after grading. If it runs out, the feedback page makes it on the first visit. */
-const RENDER_AFTER_GRADING_MS = 45_000;
+/** A file that hit a retryable error waits this long, times the attempts made, before its next try. */
+const RETRY_WAIT_S = 30;
+/** Wake-ups sent at once. Each consumer wakes the next, so this only needs to fill the free slots. */
+const MAX_WAKES = 20;
 
-export type ProcessOutcome = "done" | "failed" | "busy" | "paused" | "skip" | "retry";
+export type ProcessOutcome = "done" | "failed" | "retry" | "paused" | "idle";
+
+const NO_KEY = "Waiting: no AI API key is set. An admin can add one in Settings.";
+const AT_CAP = "Waiting: the monthly AI spending cap is reached.";
+
+/** Why no file can be graded right now, or null. */
+async function pausedReason(settings: SiteSettingsWithKey): Promise<string | null> {
+  if (!settings.aiApiKey) return NO_KEY;
+  if (settings.capOn && settings.cap > 0 && (await monthUsage()).cost >= settings.cap) return AT_CAP;
+  return null;
+}
+
+/** Shows on the waiting files why they wait, or clears that once grading can go on. */
+async function notePaused(reason: string | null) {
+  if (reason) await run("update submission set note = ? where status = 'queued' and note != ?", reason, reason);
+  else await run("update submission set note = '' where status = 'queued' and note in (?, ?)", NO_KEY, AT_CAP);
+}
+
+const staleBefore = (now: number) => new Date(now - STALE_MS).toISOString();
+
+/**
+ * Claims the file that has waited longest, if fewer files are being graded than the limit allows.
+ * One statement checks the limit and takes the file, so two callers never take the same file and
+ * the limit holds however many run at once.
+ */
+async function claimNext(settings: SiteSettingsWithKey): Promise<string | null> {
+  const now = Date.now();
+  const row = await first<{ id: string }>(
+    `update submission set status = 'grading', started_at = ?1, attempts = attempts + 1, note = ''
+      where id = (select id from submission where status = 'queued' and (queued_at is null or queued_at <= ?1)
+                   order by queued_at, uploaded_at limit 1)
+        and (select count(*) from submission where status = 'grading' and started_at > ?2) < ?3
+      returning id`,
+    new Date(now).toISOString(),
+    staleBefore(now),
+    Math.max(1, settings.concurrency),
+  );
+  return row?.id ?? null;
+}
+
+/**
+ * Sends a wake-up for each free grading slot that a waiting file could fill. Called when files are
+ * queued, when a file finishes, and every minute by the cron. Does nothing without a queue, where
+ * the cron grades directly.
+ */
+export async function kickGrading(): Promise<number> {
+  const q = getEnv().GRADING_QUEUE;
+  if (!q) return 0;
+  const settings = await getSettingsWithKey();
+  const paused = await pausedReason(settings);
+  await notePaused(paused);
+  if (paused) return 0;
+  const now = Date.now();
+  const r = await first<{ due: number; active: number }>(
+    `select (select count(*) from submission where status = 'queued' and (queued_at is null or queued_at <= ?1)) due,
+            (select count(*) from submission where status = 'grading' and started_at > ?2) active`,
+    new Date(now).toISOString(),
+    staleBefore(now),
+  );
+  const n = Math.min(r?.due ?? 0, Math.max(1, settings.concurrency) - (r?.active ?? 0), MAX_WAKES);
+  if (n > 0) await q.sendBatch(Array.from({ length: n }, () => ({ body: {} })));
+  return Math.max(0, n);
+}
 
 function pushHistory(history: string, entry: HistoryEntry): string {
   const list = parseJson<HistoryEntry[]>(history, []);
@@ -277,51 +345,22 @@ export async function loadAnswerKeys(assignmentId: string) {
   ).then((rows) => rows.map((r) => ({ name: r.name, text: r.text_content || "" })));
 }
 
-/** Grades one queued submission. Safe to call more than once: only one caller claims the file. */
-export async function processSubmission(id: string): Promise<ProcessOutcome> {
+/** Grades the file that has waited longest, if one can be graded now. Safe to call any number of times at once. */
+export async function gradeNext(): Promise<ProcessOutcome> {
   const settings = await getSettingsWithKey();
-  const now = new Date();
-  const staleBefore = new Date(now.getTime() - STALE_MS).toISOString();
-
-  const active = await first<{ n: number }>("select count(*) n from submission where status = 'grading' and started_at > ?", staleBefore);
-  // Waiting outcomes only apply while the file is still queued; a deleted or cancelled file's job is dropped.
-  if ((active?.n ?? 0) >= Math.max(1, settings.concurrency)) {
-    const waiting = await run("update submission set queued_at = ? where id = ? and status = 'queued'", now.toISOString(), id);
-    return waiting.meta.changes ? "busy" : "skip";
+  const paused = await pausedReason(settings);
+  if (paused) {
+    await notePaused(paused);
+    return "paused";
   }
-  if (!settings.aiApiKey) {
-    const waiting = await run(
-      "update submission set queued_at = ?, note = ? where id = ? and status = 'queued'",
-      now.toISOString(),
-      "Waiting: no AI API key is set. An admin can add one in Settings.",
-      id,
-    );
-    return waiting.meta.changes ? "paused" : "skip";
-  }
-  if (settings.capOn && settings.cap > 0) {
-    const usage = await monthUsage();
-    if (usage.cost >= settings.cap) {
-      const waiting = await run(
-        "update submission set queued_at = ?, note = ? where id = ? and status = 'queued'",
-        now.toISOString(),
-        "Waiting: the monthly AI spending cap is reached.",
-        id,
-      );
-      return waiting.meta.changes ? "paused" : "skip";
-    }
-  }
-
-  const claim = await run(
-    "update submission set status = 'grading', started_at = ?, attempts = attempts + 1, note = '' where id = ? and status = 'queued'",
-    now.toISOString(),
-    id,
-  );
-  if (!claim.meta.changes) return "skip";
+  const id = await claimNext(settings);
+  // Nothing is waiting, or every slot is taken. Whoever holds a slot wakes the next one when it finishes.
+  if (!id) return "idle";
 
   const sub = await first<SubmissionRow>("select * from submission where id = ?", id);
-  if (!sub) return "skip";
+  if (!sub) return "idle";
   const asg = await first<AssignmentRow>("select * from assignment where id = ?", sub.assignment_id);
-  if (!asg) return "skip";
+  if (!asg) return "idle";
 
   try {
     const doc = await submissionDoc(sub);
@@ -381,12 +420,16 @@ export async function processSubmission(id: string): Promise<ProcessOutcome> {
     if (!(err instanceof AiError)) console.error("grading error", id, err);
     // `sub` was read after the claim counted this attempt, so attempts is the number made so far.
     if (e.retryable && sub.attempts < MAX_ATTEMPTS) {
+      // A queued_at in the future keeps the file out of reach until then, which gives a rate limit time to pass.
+      const waitS = RETRY_WAIT_S * sub.attempts;
       await run(
         "update submission set status = 'queued', queued_at = ?, note = ? where id = ?",
-        new Date().toISOString(),
+        new Date(Date.now() + waitS * 1000).toISOString(),
         "Retrying: " + e.message,
         id,
       );
+      // A wake-up timed for when it's due. If it's lost, the cron wakes one within the minute after.
+      await getEnv().GRADING_QUEUE?.send({}, { delaySeconds: waitS + 1 }).catch((err) => console.error("Could not schedule the retry", id, err));
       return "retry";
     }
     await run(
@@ -460,37 +503,25 @@ async function maybeNotifyBatch(batchId: string | null) {
   });
 }
 
-/** Every minute: requeue files whose grading was interrupted, and grade without a queue. */
+/** Every minute: requeue files whose grading was interrupted, and keep grading going. */
 export async function cronTick(): Promise<void> {
   const now = Date.now();
-  const staleBefore = new Date(now - STALE_MS).toISOString();
-  const stale = await all<{ id: string }>("select id from submission where status = 'grading' and started_at <= ?", staleBefore);
-  if (stale.length) {
-    await run(
-      "update submission set status = 'queued', queued_at = ?, note = 'Grading was interrupted. Trying again.' where status = 'grading' and started_at <= ?",
-      new Date(now).toISOString(),
-      staleBefore,
-    );
-  }
-  const env = getEnv();
-  if (env.GRADING_QUEUE) {
-    // Messages may be lost (or exhausted their retries); resend for files that have waited a long time.
-    const lost = await all<{ id: string }>(
-      "select id from submission where status = 'queued' and (queued_at is null or queued_at <= ?) limit 200",
-      new Date(now - 10 * 60 * 1000).toISOString(),
-    );
-    const ids = [...new Set([...stale.map((s) => s.id), ...lost.map((s) => s.id)])];
-    if (ids.length) {
-      await runIn((q) => `update submission set queued_at = ? where id in (${q})`, [new Date(now).toISOString()], ids);
-      await enqueueGrading(ids);
-    }
+  // A file that has been "grading" this long was interrupted: its Worker was stopped or ran out of time.
+  await run(
+    "update submission set status = 'queued', queued_at = ?, note = 'Grading was interrupted. Trying again.' where status = 'grading' and started_at <= ?",
+    new Date(now).toISOString(),
+    staleBefore(now),
+  );
+  if (getEnv().GRADING_QUEUE) {
+    // The safety net: if files wait while slots are free (a wake-up was lost, grading was paused and can
+    // go on, or a retry is due), wake that many consumers.
+    await kickGrading();
     return;
   }
   // No queue bound: grade a few files per minute directly from the cron.
   const settings = await getSettingsWithKey();
   const n = Math.max(1, Math.min(10, settings.concurrency));
-  const queued = await all<{ id: string }>("select id from submission where status = 'queued' order by queued_at limit ?", n);
-  await Promise.all(queued.map((q) => processSubmission(q.id).catch((err) => console.error(err))));
+  await Promise.all(Array.from({ length: n }, () => gradeNext().catch((err) => console.error(err))));
 }
 
 /** Daily: delete submissions past the retention period, keeping only their hashes. */

@@ -261,7 +261,7 @@ export function SettingsForm({ initial, keyInfo, usage, emailOn }: Props) {
         <h2 className="h2">Data retention</h2>
         <Field
           label="Delete submissions and graded results after"
-          hint="Counted from upload. Files, scores and feedback are deleted, and student links stop working. Only SHA-256 hashes are kept, so duplicate checks still work."
+          hint="Counted from upload. Files, scores and feedback are deleted, and student links stop working. Only SHA-256 hashes are kept, so duplicate checks still work. The activity log is kept for the same period."
         >
           <Select
             value={String(s.retention)}

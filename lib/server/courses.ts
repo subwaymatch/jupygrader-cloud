@@ -1,10 +1,11 @@
 import type { Role } from "@/lib/shared/constants";
 import { addYears, todayIso } from "@/lib/shared/format";
-import type { Me, StoredFile } from "@/lib/shared/types";
+import type { Me } from "@/lib/shared/types";
 import { isArchived, type AssignmentRow, type CourseRow } from "./access";
 import { all, first, parseJson, run } from "./db";
 import { badRequest } from "./http";
-import { deleteFiles, deletePrefix } from "./storage";
+import { assignmentDocKeys, deleteUnusedDocs } from "./cleanup";
+import { deletePrefix } from "./storage";
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -159,33 +160,18 @@ export async function courseContents(courseId: string): Promise<{ assignments: n
  */
 export async function resetCourse(courseId: string) {
   const contents = await courseContents(courseId);
-  const asgs = await all<{ id: string; task_file: string | null; rubric_file: string | null }>(
-    "select id, task_file, rubric_file from assignment where course_id = ?",
-    courseId,
-  );
-  const keys = await all<{ r2_key: string }>("select k.r2_key from answer_key k join assignment a on a.id = k.assignment_id where a.course_id = ?", courseId);
-  // Uploaded documents live under docs/<uploader>/, and copies of an assignment share them, so keep any that another course still uses.
-  const docs = new Set([
-    ...keys.map((k) => k.r2_key),
-    ...asgs.flatMap((a) => [a.task_file, a.rubric_file].map((f) => parseJson<StoredFile | null>(f, null)?.key ?? "")),
-  ]);
-  const elsewhere = await all<{ k: string | null }>(
-    `select k.r2_key k from answer_key k join assignment a on a.id = k.assignment_id where a.course_id != ?1
-     union select json_extract(task_file, '$.key') from assignment where course_id != ?1
-     union select json_extract(rubric_file, '$.key') from assignment where course_id != ?1`,
-    courseId,
-  );
-  for (const e of elsewhere) docs.delete(e.k ?? "");
-  docs.delete("");
-  // Files first: if this stops part-way, the rows are still there to try again.
+  const asgs = await all<{ id: string }>("select id from assignment where course_id = ?", courseId);
+  const docs = await assignmentDocKeys("a.course_id = ?", courseId);
+  // Submitted files first: if this stops part-way, the rows are still there to try again.
   for (const a of asgs) {
     await deletePrefix(`sub/${a.id}/`);
     await deletePrefix(`asg/${a.id}/`);
   }
-  // Extracted text sits next to each document.
-  await deleteFiles([...docs].flatMap((k) => [k, k + ".txt"]));
   // Answer keys, submissions and kept hashes go with their assignment (on delete cascade).
   await run("delete from assignment where course_id = ?", courseId);
+  // Uploaded documents live under docs/<uploader>/, and copies of an assignment share them, so only the ones
+  // no other course still uses are deleted. Any left behind by a failure here go in the nightly sweep.
+  await deleteUnusedDocs(docs);
   return contents;
 }
 

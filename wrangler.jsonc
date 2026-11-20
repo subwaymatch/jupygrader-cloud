@@ -37,7 +37,8 @@
         "queue": "jupygrader-grading",
         "max_batch_size": 1,
         "max_batch_timeout": 1,
-        "max_retries": 100,
+        // A message is only a wake-up for the grader (lib/server/grading.ts), so a failed one is worth few retries.
+        "max_retries": 5,
         "max_concurrency": 10
       }
     ]

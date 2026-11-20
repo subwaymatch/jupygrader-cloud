@@ -522,7 +522,10 @@ function PostDialog({
           {flagged > 0 && (
             <p className="callout callout--warn">
               <Icon name="flag" size={15} />
-              <span>{plural(flagged, "grade")} still need{flagged === 1 ? "s" : ""} review. Turn on &ldquo;Only files marked reviewed&rdquo; to hold them back.</span>
+              <span>
+                {plural(flagged, "grade")} still need{flagged === 1 ? "s" : ""} review. Turn on &ldquo;Only files marked reviewed&rdquo; to hold them back. If you post
+                them, the grade goes to Canvas, but the student&apos;s feedback link stays closed until the file is reviewed.
+              </span>
             </p>
           )}
           {progress && (

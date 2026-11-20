@@ -1,7 +1,7 @@
 import { requireAssignment, type SubmissionRow } from "@/lib/server/access";
 import { logActivity } from "@/lib/server/activity";
 import { allIn, parseJson, run, runIn } from "@/lib/server/db";
-import { enqueueGrading } from "@/lib/server/grading";
+import { kickGrading } from "@/lib/server/grading";
 import { badRequest, handle, readJson } from "@/lib/server/http";
 import { newId } from "@/lib/server/ids";
 import { requireUser } from "@/lib/server/session";
@@ -66,7 +66,7 @@ export const POST = handle(async (req: Request, ctx: { params: Promise<{ id: str
       r.id,
     );
   }
-  await enqueueGrading(list.map((r) => r.id));
+  await kickGrading();
   await logActivity({
     type: "grading",
     user: me,
