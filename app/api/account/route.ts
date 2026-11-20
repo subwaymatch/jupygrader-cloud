@@ -1,7 +1,9 @@
-import { EMAIL_RE, normEmail, userByEmail } from "@/lib/server/accounts";
+import { EMAIL_RE, normEmail } from "@/lib/server/accounts";
 import { logActivity } from "@/lib/server/activity";
 import { first, run } from "@/lib/server/db";
+import { requestEmailChange } from "@/lib/server/email-confirm";
 import { badRequest, handle, readJson } from "@/lib/server/http";
+import { limit } from "@/lib/server/rate-limit";
 import { requireUser } from "@/lib/server/session";
 
 export const PATCH = handle(async (req: Request) => {
@@ -12,18 +14,20 @@ export const PATCH = handle(async (req: Request) => {
     if (!n) throw badRequest("Enter your name.");
     await run(`update "user" set name = ?, "updatedAt" = ? where id = ?`, n.slice(0, 120), new Date().toISOString(), me.id);
   }
+  // The address changes only once the link sent to the new one is opened (lib/server/email-confirm.ts).
+  let emailPending: string | null = null;
+  let emailed = false;
   if (b.email !== undefined) {
     const e = normEmail(b.email);
     if (!EMAIL_RE.test(e)) throw badRequest("Enter a valid email address.");
     if (e !== me.email.toLowerCase()) {
-      const other = await userByEmail(e);
-      if (other && other.id !== me.id) throw badRequest("Another account already uses that email.");
-      await run(`update "user" set email = ?, "emailVerified" = 0, "updatedAt" = ? where id = ?`, e, new Date().toISOString(), me.id);
-      await logActivity({ type: "people", user: me, text: `Changed their email to ${e}` });
+      await limit(`change-email:${me.id}`, { window: 3600, max: 5 }, "You've asked to change your email several times already.");
+      emailed = (await requestEmailChange(me, e, req)).sent;
+      emailPending = e;
     }
   }
   if (b.notifyEmail !== undefined) await run(`update "user" set "notifyEmail" = ? where id = ?`, !!b.notifyEmail, me.id);
-  return Response.json({ ok: true });
+  return Response.json({ ok: true, emailPending, emailed });
 });
 
 export const DELETE = handle(async (req: Request) => {

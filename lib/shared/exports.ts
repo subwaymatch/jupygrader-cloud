@@ -32,7 +32,7 @@ table{width:100%;border-collapse:collapse;margin-top:16px}
 td{border-top:1px solid #e5e7eb;padding:10px 0;vertical-align:top}
 td.n{text-align:right;white-space:nowrap;padding-left:16px;font-variant-numeric:tabular-nums}
 .row{display:flex;gap:12px;margin:6px 0}
-.row>.p{flex:none;width:76px;text-align:right;font:13px/1.6 "JetBrains Mono",ui-monospace,monospace;color:#0878DD;padding-top:10px}
+.row>.p{flex:none;width:76px;text-align:right;font:13px/1.6 "JetBrains Mono",ui-monospace,monospace;color:#046ECD;padding-top:10px}
 .row>.p.o{color:#A35200}
 .body{flex:1;min-width:0}
 pre{margin:0;background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:10px 12px;font:13px/1.6 "JetBrains Mono",ui-monospace,monospace;white-space:pre-wrap;word-break:break-word;overflow-x:auto}
@@ -42,7 +42,7 @@ pre.err{background:#FFEDEC;border-color:#FFC2BF}
 .md table td,.md table th{border:1px solid #e5e7eb;padding:4px 8px}
 img.out{max-width:100%;height:auto;background:#fff}
 .fb{background:#E8F2FF;border:1px solid #AED3FF;border-radius:6px;padding:10px 14px;margin:8px 0 14px;white-space:pre-wrap}
-.fb b{color:#0878DD}
+.fb b{color:#046ECD}
 footer{margin-top:40px;color:#64748B;font-size:14px}
 @media (max-width:640px){.row{flex-direction:column;gap:2px}.row>.p{width:auto;text-align:left;padding:0}}
 `;
@@ -167,8 +167,14 @@ export function wrapText(text: string, n: number): string[] {
   return out;
 }
 
+/**
+ * One CSV cell. Text that a spreadsheet would run as a formula (it starts with =, +, - or @, or a tab or
+ * return that hides one) gets a leading apostrophe, so it's shown as text: file and student names come
+ * from students. Numbers are left alone, so a negative score stays a number.
+ */
 export function csvCell(v: unknown): string {
-  const s = v === null || v === undefined ? "" : String(v);
+  let s = v === null || v === undefined ? "" : String(v);
+  if (typeof v !== "number" && /^[=+\-@\t\r]/.test(s)) s = "'" + s;
   return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
 }
 

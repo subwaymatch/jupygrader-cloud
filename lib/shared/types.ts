@@ -125,6 +125,8 @@ export type Me = {
   email: string;
   isAdmin: boolean;
   notifyEmail: boolean;
+  /** The person has shown they receive mail at their address. */
+  emailVerified: boolean;
 };
 
 /** A rendered cell of a submitted file, for the split view, previews and the student page. */

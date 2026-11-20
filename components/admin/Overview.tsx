@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button, LinkButton } from "@/components/ui/Button";
+import { useConfirm } from "@/components/ui/Dialog";
 import { EmptyState } from "@/components/ui/Mascot";
+import { approveUnconfirmed, declineRequest, EmailConfirmed } from "./requests";
 import { toast } from "@/components/ui/Toast";
 import { api, errorMessage } from "@/lib/client/api";
 import { fmtAt, fmtDay, fmtLongDay, fmtTokens, fmtUsd, plural } from "@/lib/shared/format";
@@ -12,12 +14,16 @@ import type { OverviewData } from "@/lib/server/admin";
 
 export function Overview({ data }: { data: OverviewData }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [busy, setBusy] = useState<string | null>(null);
   const attention = data.pending.length + data.tasks.length;
   const maxWeek = Math.max(1, ...data.weeks.map((w) => w.n));
   const pct = data.spend.cap > 0 ? Math.min(100, (data.spend.cost / data.spend.cap) * 100) : 0;
 
-  async function decide(id: string, action: "approve" | "decline", name: string) {
+  async function decide(p: OverviewData["pending"][number], action: "approve" | "decline") {
+    const { id, name } = p;
+    if (action === "decline" && !(await confirm(declineRequest(name)))) return;
+    if (action === "approve" && !p.emailVerified && !(await confirm(approveUnconfirmed(name, p.email)))) return;
     setBusy(id + action);
     try {
       await api(`/api/admin/users/${id}`, { method: "PATCH", body: { action } });
@@ -69,12 +75,13 @@ export function Overview({ data }: { data: OverviewData }) {
                 <span className="muted">
                   {p.email}, requested {fmtAt(p.createdAt)}
                 </span>
+                <EmailConfirmed yes={p.emailVerified} />
               </div>
               <div className="row">
-                <Button variant="secondary" size="sm" onClick={() => decide(p.id, "decline", p.name)} loading={busy === p.id + "decline"}>
+                <Button variant="secondary" size="sm" onClick={() => decide(p, "decline")} loading={busy === p.id + "decline"}>
                   Decline
                 </Button>
-                <Button variant="primary" size="sm" icon="check" onClick={() => decide(p.id, "approve", p.name)} loading={busy === p.id + "approve"}>
+                <Button variant="primary" size="sm" icon="check" onClick={() => decide(p, "approve")} loading={busy === p.id + "approve"}>
                   Approve
                 </Button>
               </div>

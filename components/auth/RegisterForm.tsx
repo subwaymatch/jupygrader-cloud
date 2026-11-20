@@ -13,7 +13,7 @@ export function RegisterForm({ firstRun, openReg }: { firstRun: boolean; openReg
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [pending, setPending] = useState<string | null>(null);
+  const [pending, setPending] = useState<{ email: string; confirm: boolean } | null>(null);
 
   if (!openReg && !firstRun) {
     return (
@@ -31,11 +31,18 @@ export function RegisterForm({ firstRun, openReg }: { firstRun: boolean; openReg
     return (
       <>
         <div className="auth-card">
-          <h1 className="auth-card__title">Request received</h1>
-          <p style={{ lineHeight: 1.6 }}>
-            An administrator reviews every instructor account by hand. We&apos;ll email <strong>{pending}</strong> once yours is approved.
-            You can sign in after that.
-          </p>
+          <h1 className="auth-card__title">{pending.confirm ? "Confirm your email address" : "Request received"}</h1>
+          {pending.confirm ? (
+            <p style={{ lineHeight: 1.6 }}>
+              We sent a link to <strong>{pending.email}</strong>. Open it to confirm the address is yours. An administrator then reviews your
+              request by hand, and we&apos;ll email you once it&apos;s approved.
+            </p>
+          ) : (
+            <p style={{ lineHeight: 1.6 }}>
+              An administrator reviews every instructor account by hand. We&apos;ll email <strong>{pending.email}</strong> once yours is approved.
+              You can sign in after that.
+            </p>
+          )}
         </div>
         <div className="auth__foot">
           <Link href="/login">Back to sign in</Link>
@@ -49,9 +56,9 @@ export function RegisterForm({ firstRun, openReg }: { firstRun: boolean; openReg
     setError("");
     setBusy(true);
     try {
-      const res = await api<{ status: string }>("/api/register", { body: { name, email, password } });
+      const res = await api<{ status: string; confirm?: boolean }>("/api/register", { body: { name, email, password } });
       if (res.status === "active") window.location.assign("/app/courses");
-      else setPending(email.trim());
+      else setPending({ email: email.trim(), confirm: !!res.confirm });
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -82,7 +89,7 @@ export function RegisterForm({ firstRun, openReg }: { firstRun: boolean; openReg
         {!firstRun && (
           <div className="callout">
             <Icon name="info" size={15} />
-            <span>We review each instructor account by hand. You&apos;ll get an email when yours is approved and ready to use.</span>
+            <span>We&apos;ll email you a link to confirm your address, then review your request by hand. You&apos;ll get an email when it&apos;s approved.</span>
           </div>
         )}
         {error && (

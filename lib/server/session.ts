@@ -5,7 +5,7 @@ import { getAuth } from "./auth";
 import { first } from "./db";
 import { forbidden, unauthorized } from "./http";
 
-type UserRow = { id: string; name: string; email: string; isAdmin: number; status: string; notifyEmail: number };
+type UserRow = { id: string; name: string; email: string; isAdmin: number; status: string; notifyEmail: number; emailVerified: number };
 
 export async function getSessionUser(h: Headers): Promise<Me | null> {
   let session;
@@ -15,9 +15,9 @@ export async function getSessionUser(h: Headers): Promise<Me | null> {
     return null;
   }
   if (!session) return null;
-  const u = await first<UserRow>('select id, name, email, isAdmin, status, notifyEmail from "user" where id = ?', session.user.id);
+  const u = await first<UserRow>('select id, name, email, isAdmin, status, notifyEmail, "emailVerified" from "user" where id = ?', session.user.id);
   if (!u || u.status !== "active") return null;
-  return { id: u.id, name: u.name, email: u.email, isAdmin: !!u.isAdmin, notifyEmail: !!u.notifyEmail };
+  return { id: u.id, name: u.name, email: u.email, isAdmin: !!u.isAdmin, notifyEmail: !!u.notifyEmail, emailVerified: !!u.emailVerified };
 }
 
 export async function requireUser(req: Request): Promise<Me> {

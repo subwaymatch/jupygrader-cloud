@@ -1,16 +1,22 @@
 import handler from "vinext/server/fetch-handler";
 import { noteServedOrigin } from "@/lib/server/env";
+import { pruneEmailTokens } from "@/lib/server/email-confirm";
 import { cronTick, processSubmission, retentionSweep } from "@/lib/server/grading";
+import { pruneRateLimits } from "@/lib/server/rate-limit";
+import { withSecurityHeaders } from "@/lib/server/security-headers";
 
 // Durable Object that runs nbconvert in a container, for "Notebook as HTML" downloads.
 export { Nbconvert } from "./nbconvert";
 
 type GradingMessage = { submissionId: string };
 
+// True under `npm run dev`, where Vite's dev server needs a looser content policy.
+const DEV = !!(import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV;
+
 export default {
-  fetch(request, env, ctx) {
+  async fetch(request, env, ctx) {
     noteServedOrigin(request);
-    return handler.fetch(request, env, ctx);
+    return withSecurityHeaders(request, await handler.fetch(request, env, ctx), DEV);
   },
 
   /** Grading jobs. Each message is one submission; busy or paused jobs are retried later. */
@@ -36,7 +42,7 @@ export default {
   },
 
   async scheduled(controller: ScheduledController, _env: unknown, ctx: ExecutionContext) {
-    if (controller.cron === "17 3 * * *") ctx.waitUntil(retentionSweep().then(() => undefined));
+    if (controller.cron === "17 3 * * *") ctx.waitUntil(Promise.allSettled([retentionSweep(), pruneRateLimits(), pruneEmailTokens()]));
     else ctx.waitUntil(cronTick());
   },
 } satisfies ExportedHandler<Cloudflare.Env, GradingMessage>;

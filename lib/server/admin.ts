@@ -3,10 +3,13 @@ import { isArchived, type CourseRow } from "./access";
 import { all, first } from "./db";
 import { getSettingsWithKey, monthStartIso, monthUsage } from "./settings";
 
-export type PendingUser = { id: string; name: string; email: string; createdAt: string };
+export type PendingUser = { id: string; name: string; email: string; createdAt: string; /** They opened the link sent to their address. */ emailVerified: boolean };
 
 export async function pendingUsers(): Promise<PendingUser[]> {
-  return all<PendingUser>(`select id, name, email, "createdAt" from "user" where status = 'pending' order by "createdAt"`);
+  const rows = await all<Omit<PendingUser, "emailVerified"> & { emailVerified: number }>(
+    `select id, name, email, "createdAt", "emailVerified" from "user" where status = 'pending' order by "createdAt"`,
+  );
+  return rows.map((r) => ({ ...r, emailVerified: !!r.emailVerified }));
 }
 
 export type AttentionTask = { tone: "danger" | "warn" | "muted"; title: string; detail: string; cta: string; href: string };
@@ -106,14 +109,16 @@ export type AdminUser = {
   name: string;
   email: string;
   isAdmin: boolean;
+  /** active, pending (waiting for approval) or disabled (deactivated by an administrator). */
   status: string;
+  emailVerified: boolean;
   createdAt: string;
   roles: { courseId: string; course: string; role: Role; archived: boolean }[];
 };
 
 export async function adminUsers(): Promise<AdminUser[]> {
-  const users = await all<{ id: string; name: string; email: string; isAdmin: number; status: string; createdAt: string }>(
-    `select id, name, email, isAdmin, status, "createdAt" from "user" order by case status when 'pending' then 0 else 1 end, name collate nocase`,
+  const users = await all<{ id: string; name: string; email: string; isAdmin: number; status: string; emailVerified: number; createdAt: string }>(
+    `select id, name, email, isAdmin, status, "emailVerified", "createdAt" from "user" order by case status when 'pending' then 0 else 1 end, name collate nocase`,
   );
   const enr = await all<{ user_id: string; course_id: string; role: Role; name: string; end_date: string }>(
     "select e.user_id, e.course_id, e.role, c.name, c.end_date from enrollment e join course c on c.id = e.course_id order by c.name",
@@ -124,6 +129,7 @@ export async function adminUsers(): Promise<AdminUser[]> {
     email: u.email,
     isAdmin: !!u.isAdmin,
     status: u.status,
+    emailVerified: !!u.emailVerified,
     createdAt: u.createdAt,
     roles: enr
       .filter((e) => e.user_id === u.id)

@@ -102,6 +102,28 @@ export const AI_PROVIDERS = {
 } as const satisfies Record<string, { label: string; baseUrl: string; model: string; rates: Record<string, number>; efforts: readonly Effort[] }>;
 export type AiProvider = keyof typeof AI_PROVIDERS;
 
+/** The site an API address points at ("https://api.example.com"), or "" when it isn't a URL. A saved API key belongs to one site. */
+export function apiOrigin(address: string): string {
+  try {
+    return new URL(address.trim()).origin;
+  } catch {
+    return "";
+  }
+}
+
+/** Plain http:// sends the API key and student work unencrypted, so it's only for a server on the same machine. */
+export function insecureApiAddress(address: string): boolean {
+  try {
+    const u = new URL(address.trim());
+    return u.protocol === "http:" && !["localhost", "127.0.0.1", "[::1]"].includes(u.hostname);
+  } catch {
+    return false;
+  }
+}
+
+export const KEY_NEEDED_FOR_NEW_ADDRESS =
+  "Enter the API key again. A saved key is only sent to the address it was saved for, so a different address needs the key typed in.";
+
 export function isAiProvider(v: unknown): v is AiProvider {
   return typeof v === "string" && Object.hasOwn(AI_PROVIDERS, v);
 }

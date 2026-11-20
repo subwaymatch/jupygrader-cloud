@@ -1,9 +1,9 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { StudentNotebook } from "@/components/notebook/NotebookFrame";
 import { NotebookView } from "@/components/notebook/NotebookView";
 import { Icon } from "@/components/ui/Icon";
 import { Logo } from "@/components/ui/Logo";
-import { Mascot } from "@/components/ui/Mascot";
 import { getCourseAccess } from "@/lib/server/access";
 import { parseJson } from "@/lib/server/db";
 import { currentUser } from "@/lib/server/session";
@@ -26,22 +26,8 @@ export default async function StudentPage({ params, searchParams }: { params: Pr
     if (me && (await getCourseAccess(me, shared.course.id))) back = `/app/submissions/${shared.sub.id}`;
   }
 
-  if (!shared) {
-    return (
-      <div className="student-page">
-        <div className="student-wrap">
-          <Logo size={24} />
-          <div className="student-card" style={{ alignItems: "flex-start" }}>
-            <Mascot pose="sad" size={96} />
-            <h1 className="h1">This link is no longer active</h1>
-            <p className="muted" style={{ lineHeight: 1.6 }}>
-              The person who shared it turned it off or replaced it with a new link, or the feedback was deleted. Ask them for the current one.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // app/r/[token]/not-found.tsx says the link is no longer active, with a 404 status.
+  if (!shared) notFound();
 
   const { sub, asg, course } = shared;
   const result = parseJson<GradeResult>(sub.result, { criteria: [], comments: [], summary: "", confidence: "high", lowReason: "" });

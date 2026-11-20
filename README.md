@@ -6,7 +6,7 @@ Teachers set up an assignment with instructions, a rubric and an optional answer
 
 ## Features
 
-- **Courses and roles.** Per-course Teacher and Grader roles, site-wide Admins. Instructors request an account and an admin approves it. Graders and TAs join through email invitations. The first account on a new site becomes the admin. Teachers and admins can reset a course, deleting its assignments, files and grades while keeping the course and its people. The courses page shows each course's dates and week of term, its people, and how many files are graded, in progress or waiting for review.
+- **Courses and roles.** Per-course Teacher and Grader roles, site-wide Admins. Instructors request an account, confirm their email address through a link, and an admin approves it. Graders and TAs join through email invitations. The first account on a new site becomes the admin. Admins can deactivate an account (it can't sign in, and keeps its course roles) or delete it. Teachers and admins can reset a course, deleting its assignments, files and grades while keeping the course and its people. The courses page shows each course's dates and week of term, its people, and how many files are graded, in progress or waiting for review.
 - **Assignments.** Instructions as text or a document (PDF, DOCX, Markdown, text). Rubrics can be skipped (the AI splits the points from the instructions), pasted or uploaded and itemized by the AI, or built by hand. Answer keys are sent to the AI but never shown to students. Grading style (from Completion, which gives full points for every part a student attempted, to Strict), feedback tone and length, notes for the AI, and how many notebook plots and interactive outputs the AI sees (the site's default or the assignment's own).
 - **Uploads.** Drag and drop anywhere on the page, or a `.zip` (unpacked in the browser). Exact duplicates are detected by SHA-256 before upload. Near-identical submissions (MinHash over the code) are flagged for review.
 - **Background grading.** Files are queued in Cloudflare Queues and graded a few at a time, so the page can be closed. Rate limits and transient errors are retried. Admins set how many files are graded at once.
@@ -162,6 +162,13 @@ Graded notebooks are rendered as HTML by Jupyter's own nbconvert (the JupyterLab
 | `AI_BASE_URL`, `AI_API_KEY` | optional | Defaults for the AI connection. Values saved in Admin > Settings take precedence. |
 
 Everything else (registration, allowed email domains, concurrency, retention, reasoning effort, sending plots and interactive outputs to the AI, the Canvas address) is set by an admin in the app.
+
+### Accounts and security
+
+- **Email addresses are confirmed.** A new account request, and a change of address on the Account page, each send a link to the address, and nothing changes until it's opened. Admins see whether a request's address was confirmed, and are asked before approving one that wasn't. Only someone with a confirmed address is added to a course straight away when invited; anyone else gets the invitation by email. Without `RESEND_API_KEY` the links are written to the Worker logs like every other email, and requests show as unconfirmed.
+- **Rate limits** are counted in D1 (`rate_limit` table, `lib/server/rate-limit.ts`), so they hold across Worker instances: sign-in and the other auth routes through better-auth, plus account requests (5 an hour per address) and confirmation links. The client's address comes from `CF-Connecting-IP`.
+- **Security headers** are added to every response in `worker/index.ts` (`lib/server/security-headers.ts`): a content security policy, `X-Content-Type-Options`, `X-Frame-Options`, HSTS, and a referrer policy that sends nothing from pages whose address holds a secret, such as student links.
+- **The AI API key** is only sent to the site it was saved for. Changing the API address to another site needs the key entered again, so the saved key can't be read by pointing the address elsewhere. Plain `http://` addresses are only accepted for `localhost`.
 
 ### Canvas
 

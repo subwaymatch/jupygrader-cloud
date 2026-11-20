@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Button, IconButton, LinkButton } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Controls";
+import { useConfirm } from "@/components/ui/Dialog";
 import { Icon } from "@/components/ui/Icon";
 import { Pager, pageSlice } from "@/components/ui/Pager";
 import { Select } from "@/components/ui/Select";
@@ -13,8 +14,9 @@ import { api, errorMessage } from "@/lib/client/api";
 import { ROLE_INFO, type Role } from "@/lib/shared/constants";
 import { fmtAt } from "@/lib/shared/format";
 import type { AdminUser } from "@/lib/server/admin";
+import { approveUnconfirmed, declineRequest, EmailConfirmed } from "./requests";
 
-type Tab = "all" | "pending" | "unassigned" | "admins";
+type Tab = "all" | "pending" | "unassigned" | "admins" | "disabled";
 
 export function UsersAdmin({ users, courses, meId }: { users: AdminUser[]; courses: { id: string; name: string }[]; meId: string }) {
   const router = useRouter();
@@ -25,17 +27,19 @@ export function UsersAdmin({ users, courses, meId }: { users: AdminUser[]; cours
   const [addCourse, setAddCourse] = useState("");
   const [addRole, setAddRole] = useState<Role>("Grader");
   const [busy, setBusy] = useState(false);
+  const confirm = useConfirm();
 
   const counts = {
     all: users.filter((u) => u.status === "active").length,
     pending: users.filter((u) => u.status === "pending").length,
     unassigned: users.filter((u) => u.status === "active" && !u.roles.length).length,
-    admins: users.filter((u) => u.isAdmin).length,
+    admins: users.filter((u) => u.isAdmin && u.status === "active").length,
+    disabled: users.filter((u) => u.status === "disabled").length,
   };
   const rows = useMemo(() => {
     const s = q.trim().toLowerCase();
     return users.filter((u) => {
-      if (tab === "pending" ? u.status !== "pending" : u.status !== "active") return false;
+      if (u.status !== (tab === "pending" ? "pending" : tab === "disabled" ? "disabled" : "active")) return false;
       if (tab === "unassigned" && u.roles.length) return false;
       if (tab === "admins" && !u.isAdmin) return false;
       return !s || u.name.toLowerCase().includes(s) || u.email.toLowerCase().includes(s);
@@ -59,11 +63,41 @@ export function UsersAdmin({ users, courses, meId }: { users: AdminUser[]; cours
     }
   }
 
-  const TABS: { id: Tab; label: string; icon: "users" | "userPlus" | "shield" | "clock" }[] = [
+  async function decline(u: AdminUser) {
+    if (await confirm(declineRequest(u.name))) await patch(u.id, { action: "decline" }, `Declined ${u.name}`);
+  }
+
+  async function approve(u: AdminUser) {
+    if (!u.emailVerified && !(await confirm(approveUnconfirmed(u.name, u.email)))) return;
+    await patch(u.id, { action: "approve" }, `${u.name} can now sign in`);
+  }
+
+  async function deactivate(u: AdminUser) {
+    const ok = await confirm({
+      title: `Deactivate ${u.name}\u2019s account?`,
+      body: "They are signed out everywhere and can\u2019t sign in again. Their course roles and the work they did stay as they are, and you can reactivate the account at any time.",
+      cta: "Deactivate account",
+      danger: true,
+    });
+    if (ok) await patch(u.id, { action: "deactivate" }, `Deactivated ${u.name}\u2019s account`);
+  }
+
+  async function remove(u: AdminUser) {
+    const ok = await confirm({
+      title: `Delete ${u.name}\u2019s account permanently?`,
+      body: "They lose access to every course, and this can\u2019t be undone. Grades and feedback they worked on stay with the courses. To only stop them signing in, deactivate the account instead.",
+      cta: "Delete permanently",
+      danger: true,
+    });
+    if (ok && (await patch(u.id, { action: "remove" }, `Deleted ${u.name}\u2019s account`))) setOpenId(null);
+  }
+
+  const TABS: { id: Tab; label: string; icon: "users" | "userPlus" | "shield" | "clock" | "ban" }[] = [
     { id: "all", label: "Everyone", icon: "users" },
     ...(counts.pending ? [{ id: "pending" as Tab, label: "Requests", icon: "clock" as const }] : []),
     { id: "unassigned", label: "Unassigned", icon: "userPlus" },
     { id: "admins", label: "Admins", icon: "shield" },
+    ...(counts.disabled ? [{ id: "disabled" as Tab, label: "Deactivated", icon: "ban" as const }] : []),
   ];
 
   return (
@@ -108,7 +142,10 @@ export function UsersAdmin({ users, courses, meId }: { users: AdminUser[]; cours
             </div>
             <div className="role-chips">
               {u.status === "pending" ? (
-                <span className="muted">Requested an instructor account {fmtAt(u.createdAt)}</span>
+                <>
+                  <span className="muted">Requested an instructor account {fmtAt(u.createdAt)}</span>
+                  <EmailConfirmed yes={u.emailVerified} />
+                </>
               ) : u.roles.length ? (
                 u.roles.map((r) => (
                   <span className="role-chip" key={r.courseId}>
@@ -122,16 +159,16 @@ export function UsersAdmin({ users, courses, meId }: { users: AdminUser[]; cours
             </div>
             {u.status === "pending" ? (
               <div className="row">
-                <Button variant="secondary" size="sm" disabled={busy} onClick={() => patch(u.id, { action: "decline" }, `Declined ${u.name}`)}>
+                <Button variant="secondary" size="sm" disabled={busy} onClick={() => decline(u)}>
                   Decline
                 </Button>
-                <Button variant="primary" size="sm" icon="check" disabled={busy} onClick={() => patch(u.id, { action: "approve" }, `${u.name} can now sign in`)}>
+                <Button variant="primary" size="sm" icon="check" disabled={busy} onClick={() => approve(u)}>
                   Approve
                 </Button>
               </div>
             ) : (
               <Button variant="secondary" size="sm" icon="userCog" onClick={() => (setOpenId(u.id), setAddCourse(""))}>
-                Edit roles
+                {u.status === "disabled" ? "Manage" : "Edit roles"}
               </Button>
             )}
           </div>
@@ -140,7 +177,7 @@ export function UsersAdmin({ users, courses, meId }: { users: AdminUser[]; cours
       </div>
       <Pager page={pg.page} pages={pg.pages} total={rows.length} from={pg.from} to={pg.to} onPage={setPage} />
 
-      <Sheet open={!!open} onOpenChange={(o) => !o && setOpenId(null)} label="Edit roles">
+      <Sheet open={!!open} onOpenChange={(o) => !o && setOpenId(null)} label="Roles and account">
         {open && (
           <>
             <div className="sheet__head">
@@ -207,11 +244,39 @@ export function UsersAdmin({ users, courses, meId }: { users: AdminUser[]; cours
                 <h3 className="h3">Site access</h3>
                 <Checkbox
                   checked={open.isAdmin}
-                  disabled={open.id === meId || busy}
+                  disabled={open.id === meId || busy || open.status !== "active"}
                   onChange={(v) => patch(open.id, { action: "setAdmin", value: v }, v ? `${open.name} is now an administrator` : `${open.name} is no longer an administrator`)}
                   label="Administrator"
                   description={open.id === meId ? "You can't remove your own admin access." : "Approves instructors, manages users and invitations, and changes site settings. Has Teacher access in every course."}
                 />
+              </section>
+              <section className="stack" style={{ gap: 10 }}>
+                <h3 className="h3">Account</h3>
+                {open.id === meId ? (
+                  <span className="muted">This is your own account. Delete it from the Account page.</span>
+                ) : (
+                  <>
+                    <span className="muted">
+                      {open.status === "disabled"
+                        ? "This account is deactivated: the person can\u2019t sign in. Their course roles are kept."
+                        : "Deactivating signs the person out and stops them signing in, and keeps their course roles. Deleting removes the account for good."}
+                    </span>
+                    <div className="row row--wrap">
+                      {open.status === "disabled" ? (
+                        <Button variant="secondary" icon="check" disabled={busy} onClick={() => patch(open.id, { action: "reactivate" }, `${open.name} can sign in again`)}>
+                          Reactivate account
+                        </Button>
+                      ) : (
+                        <Button variant="secondary" icon="ban" disabled={busy} onClick={() => deactivate(open)}>
+                          Deactivate account
+                        </Button>
+                      )}
+                      <Button variant="danger-outline" icon="trash" disabled={busy} onClick={() => remove(open)}>
+                        Delete account
+                      </Button>
+                    </div>
+                  </>
+                )}
               </section>
               <section className="stack" style={{ gap: 10 }}>
                 <h3 className="h3">About roles</h3>
