@@ -7,6 +7,7 @@ import { flashFrameCell, NotebookFrame } from "@/components/notebook/NotebookFra
 import { cellDomId, NotebookView } from "@/components/notebook/NotebookView";
 import { Button, IconButton } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/Dialog";
+import { regradeConfirm } from "./confirmRegrade";
 import { Input, Textarea } from "@/components/ui/Field";
 import { Icon } from "@/components/ui/Icon";
 import { Mascot } from "@/components/ui/Mascot";
@@ -139,6 +140,17 @@ export function FeedbackView({
     }
   }
 
+  /** Replaces the student link. The old one stops working, wherever it was already sent. */
+  async function newLink() {
+    const ok = await confirm({
+      title: "Make a new student link?",
+      body: "The current link stops working straight away. If you already sent it to the student, or posted it to Canvas, they'll need the new one.",
+      cta: "Make a new link",
+      danger: true,
+    });
+    if (ok) await patch({ action: "resetLink" }, "New student link made. The old one no longer works.");
+  }
+
   /** Saves the total typed into the grade field. An empty or invalid field is an error, not a 0. */
   async function saveGrade() {
     const score = parseScore(editGrade);
@@ -176,6 +188,10 @@ export function FeedbackView({
 
   async function act(action: "regrade" | "retry" | "gradeAnyway" | "remove") {
     const sid = d.id;
+    if (action === "regrade") {
+      const ask = regradeConfirm([d]);
+      if (ask && !(await confirm(ask))) return;
+    }
     try {
       await api(`/api/assignments/${d.assignmentId}/actions`, { body: { action, ids: [sid] } });
       toast(action === "remove" ? "Removed" : "Queued for grading");
@@ -566,7 +582,7 @@ export function FeedbackView({
                         Anyone with this link can see the score and feedback without signing in. It always shows the latest grade.{" "}
                         {canGrade && (
                           <>
-                            <Button variant="link" onClick={() => patch({ action: "resetLink" }, "New student link made. The old one no longer works.")}>
+                            <Button variant="link" onClick={newLink}>
                               Make a new link
                             </Button>{" "}
                             to stop the old one working.

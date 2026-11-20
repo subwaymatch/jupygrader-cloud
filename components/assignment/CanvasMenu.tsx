@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Controls";
 import { Modal } from "@/components/ui/Dialog";
+import { useUnloadWarning } from "@/components/ui/LeaveGuard";
 import { Icon } from "@/components/ui/Icon";
 import { Mascot } from "@/components/ui/Mascot";
 import { ActionMenu, type MenuEntry } from "@/components/ui/Menu";
@@ -282,6 +283,8 @@ function ImportDialog({
   }
 
   const working = !!progress;
+  // The page sends the batches one after another, so closing it stops the run part-way.
+  useUnloadWarning(working);
   return (
     <Modal
       open
@@ -437,6 +440,8 @@ function PostDialog({
   }
 
   const working = !!progress;
+  // The page sends the batches one after another, so closing it stops the run part-way.
+  useUnloadWarning(working);
   return (
     <Modal
       open

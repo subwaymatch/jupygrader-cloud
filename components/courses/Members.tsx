@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { ActionMenu } from "@/components/ui/Menu";
-import { useConfirm } from "@/components/ui/Dialog";
+import { revokeInvitation, useConfirm } from "@/components/ui/Dialog";
 import { toast } from "@/components/ui/Toast";
 import { api, copyText, errorMessage } from "@/lib/client/api";
 import { ROLE_INFO } from "@/lib/shared/constants";
@@ -126,7 +126,9 @@ export function Members({
                             label: "Revoke invitation",
                             icon: "ban",
                             danger: true,
-                            onClick: () => run(() => api(`/api/invitations/${m.id}`, { method: "DELETE" }), "Invitation revoked"),
+                            onClick: async () => {
+                              if (await confirm(revokeInvitation(m.email))) run(() => api(`/api/invitations/${m.id}`, { method: "DELETE" }), "Invitation revoked");
+                            },
                           },
                         ]
                   }

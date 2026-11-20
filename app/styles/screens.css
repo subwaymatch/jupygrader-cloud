@@ -1789,6 +1789,38 @@
   }
 }
 
+/* Between the phone layout (cards, below) and a wide window, the sidebar leaves the table little room, and
+   the file name used to get what was left: about 12 characters at 960px. The row actions keep their icons and
+   drop their words (still read out, and shown as tooltips), the narrow columns tighten, and a long name wraps
+   onto a second line instead of being cut off. */
+@media (min-width: 721px) and (max-width: 1100px) {
+  .subs {
+    --cols: 28px minmax(0, 1fr) 104px 72px 112px;
+  }
+  .subs__acts .act__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .subs__acts .act:not(.act--icon) {
+    width: 30px;
+    padding: 0;
+    justify-content: center;
+    color: var(--c-muted);
+  }
+  .subs__name {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+}
+
 @media (max-width: 900px) {
   .asg-tabs {
     margin-top: 18px;

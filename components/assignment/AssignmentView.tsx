@@ -5,6 +5,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Button, IconButton } from "@/components/ui/Button";
 import { useConfirm } from "@/components/ui/Dialog";
+import { useConfirmLeave } from "@/components/ui/LeaveGuard";
+import { regradeConfirm } from "./confirmRegrade";
 import { Input } from "@/components/ui/Field";
 import { Icon } from "@/components/ui/Icon";
 import { Mascot } from "@/components/ui/Mascot";
@@ -87,7 +89,12 @@ export function AssignmentView({
     [params, pathname, router],
   );
 
-  const goTab = (t: Tab) => setParam("tab", t === "submissions" ? null : t);
+  // Each tab keeps its own unsaved edits, and switching tabs drops them, so it asks first.
+  const confirmLeave = useConfirmLeave();
+  const goTab = async (t: Tab) => {
+    if (t === tab || !(await confirmLeave())) return;
+    setParam("tab", t === "submissions" ? null : t);
+  };
   // Feedback pages follow the table's order for J and K.
   const onOrderChange = useCallback((ids: string[]) => saveOrder(asg.id, ids), [asg.id]);
 
@@ -113,6 +120,10 @@ export function AssignmentView({
   const rubricN = asg.rubricMethod === "none" ? 0 : asg.rubricRows.filter((r) => r.name.trim()).length;
 
   async function bulk(action: "regrade" | "retry" | "gradeAnyway", ids: string[], msg: string) {
+    if (action === "regrade") {
+      const ask = regradeConfirm(items.filter((s) => ids.includes(s.id)));
+      if (ask && !(await confirm(ask))) return;
+    }
     try {
       await api(`/api/assignments/${asg.id}/actions`, { body: { action, ids } });
       toast(msg);

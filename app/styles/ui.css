@@ -25,11 +25,11 @@
   pointer-events: none;
 }
 .btn--primary {
-  background: var(--c-primary);
+  background: var(--c-primary-active);
   color: #fff;
 }
 .btn--primary:hover {
-  background: var(--c-primary-hover);
+  background: var(--c-primary-strong);
   color: #fff;
 }
 .btn--secondary {
@@ -79,7 +79,7 @@
   height: auto;
 }
 .btn--link:hover {
-  color: var(--c-primary-hover);
+  color: var(--c-primary-strong);
   text-decoration: underline;
 }
 .btn--pill {
@@ -217,7 +217,7 @@
 .textarea {
   width: 100%;
   padding: 9px 12px;
-  border: 1px solid var(--c-border-strong);
+  border: 1px solid var(--c-control-border);
   border-radius: var(--radius);
   background: #fff;
   font-size: 14px;
@@ -236,7 +236,8 @@
 }
 .input::placeholder,
 .textarea::placeholder {
-  color: #8a94a6;
+  color: var(--c-muted);
+  opacity: 1;
 }
 .input:focus,
 .textarea:focus {
@@ -262,7 +263,7 @@
 .affix {
   display: flex;
   align-items: center;
-  border: 1px solid var(--c-border-strong);
+  border: 1px solid var(--c-control-border);
   border-radius: var(--radius);
   background: #fff;
   overflow: hidden;
@@ -300,7 +301,7 @@
   height: 38px;
   width: 100%;
   padding: 0 34px 0 12px;
-  border: 1px solid var(--c-border-strong);
+  border: 1px solid var(--c-control-border);
   border-radius: var(--radius);
   background: #fff
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")
@@ -322,7 +323,7 @@
   height: 38px;
   width: 100%;
   padding: 0 10px 0 12px;
-  border: 1px solid var(--c-border-strong);
+  border: 1px solid var(--c-control-border);
   border-radius: var(--radius);
   background: #fff;
   font-size: 14px;
@@ -799,7 +800,8 @@
   box-shadow: var(--shadow-xs);
 }
 .seg__item:focus-visible {
-  box-shadow: var(--ring);
+  outline: 2px solid var(--c-primary);
+  outline-offset: 2px;
 }
 .seg__item[data-disabled] {
   opacity: 0.6;
@@ -817,7 +819,7 @@
   width: 16px;
   height: 16px;
   margin-top: 2px;
-  border: 1px solid var(--c-border-strong);
+  border: 1px solid var(--c-control-border);
   border-radius: 4px;
   background: #fff;
   display: grid;
@@ -832,7 +834,8 @@
   border-color: var(--c-primary);
 }
 .check__box:focus-visible {
-  box-shadow: var(--ring);
+  outline: 2px solid var(--c-primary);
+  outline-offset: 2px;
 }
 .check__box[data-disabled] {
   opacity: 0.5;
@@ -861,30 +864,32 @@
   align-items: flex-start;
   gap: 10px;
   padding: 12px 14px;
-  border: 1px solid var(--c-border-strong);
+  border: 1px solid var(--c-control-border);
   border-radius: var(--radius);
   background: #fff;
   text-align: left;
   outline: none;
 }
 .radio-card:hover {
-  border-color: var(--c-fill-strong);
+  border-color: var(--c-muted);
   background: var(--c-bg-subtle);
 }
+/* The pale ring alone is 1.3:1 against white, so these three get the same outline as buttons and links. */
 .radio-card[data-checked] {
   border-color: var(--c-primary);
   background: var(--c-primary-50);
   box-shadow: inset 0 0 0 1px var(--c-primary);
 }
 .radio-card:focus-visible {
-  box-shadow: var(--ring);
+  outline: 2px solid var(--c-primary);
+  outline-offset: 2px;
 }
 .radio-dot {
   flex: none;
   width: 16px;
   height: 16px;
   margin-top: 2px;
-  border: 1px solid var(--c-border-strong);
+  border: 1px solid var(--c-control-border);
   border-radius: 50%;
   background: #fff;
   display: grid;
@@ -957,7 +962,7 @@ button.chip:hover {
   padding: 0 5px;
   border-radius: 999px;
   background: var(--c-primary-100);
-  color: var(--c-link);
+  color: var(--c-link-strong);
   font-size: 11.5px;
   font-weight: 600;
   display: inline-grid;
@@ -1100,7 +1105,7 @@ a.list-row:hover,
   height: 28px;
   border-radius: 50%;
   background: var(--c-primary-100);
-  color: var(--c-link);
+  color: var(--c-link-strong);
   font-size: 11px;
   font-weight: 600;
   display: grid;
@@ -1278,5 +1283,18 @@ a.list-row:hover,
   .native-select,
   .affix input {
     font-size: 16px; /* prevents iOS zoom on focus */
+  }
+}
+
+/* Windows High Contrast drops shadows and background colours, which is all the focus styles above
+   change on these controls, so they get a real outline there. */
+@media (forced-colors: active) {
+  .input:focus,
+  .textarea:focus,
+  .affix:focus-within,
+  .native-select:focus,
+  .select-trigger:focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 1px;
   }
 }

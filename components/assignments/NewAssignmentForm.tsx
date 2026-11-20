@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Field";
 import { Icon } from "@/components/ui/Icon";
+import { UNSAVED_CHANGES, useLeaveGuard } from "@/components/ui/LeaveGuard";
 import { Mascot } from "@/components/ui/Mascot";
 import { Select } from "@/components/ui/Select";
 import { toast } from "@/components/ui/Toast";
@@ -47,6 +48,11 @@ export function NewAssignmentForm({
   const [titleError, setTitleError] = useState("");
   const [busy, setBusy] = useState(false);
   const [mismatchOpen, setMismatchOpen] = useState(false);
+  // Anything typed or uploaded so far. Creating the assignment moves on without asking.
+  useLeaveGuard(
+    !busy && !!(title.trim() || task.trim() || taskFile || rubric.source.trim() || rubric.file || rubric.rows.some((r) => r.name.trim()) || keys.length || settings.notes.trim()),
+    { ...UNSAVED_CHANGES, body: "This assignment hasn't been created yet. What you've entered will be lost if you leave." },
+  );
   const mismatch = pointsMismatch(rubric.method, rubric.rows, rubric.points);
 
   async function loadCanvas() {

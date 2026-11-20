@@ -13,7 +13,7 @@ function html(e: Email): string {
     .map((p) => `<p style="margin:0 0 14px">${escapeHtml(p).replace(/\n/g, "<br>")}</p>`)
     .join("");
   const btn = e.action
-    ? `<p style="margin:20px 0"><a href="${escapeHtml(e.action.url)}" style="background:#148CFF;color:#fff;text-decoration:none;padding:10px 16px;border-radius:6px;font-weight:500;display:inline-block">${escapeHtml(e.action.label)}</a></p><p style="margin:0 0 14px;color:#64748B;font-size:13px">Or paste this link into your browser: ${escapeHtml(e.action.url)}</p>`
+    ? `<p style="margin:20px 0"><a href="${escapeHtml(e.action.url)}" style="background:#046ECD;color:#fff;text-decoration:none;padding:10px 16px;border-radius:6px;font-weight:500;display:inline-block">${escapeHtml(e.action.label)}</a></p><p style="margin:0 0 14px;color:#64748B;font-size:13px">Or paste this link into your browser: ${escapeHtml(e.action.url)}</p>`
     : "";
   // Mail clients can only load the logo from a public https address.
   const base = appUrl();

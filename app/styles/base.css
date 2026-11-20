@@ -2,11 +2,14 @@
 :root {
   --c-text: #111827;
   --c-text-2: #334155;
-  --c-muted: #64748b;
+  /* 4.5:1 or better for text on white and on the grey and blue tints (--c-fill, --c-hover, --c-primary-50). */
+  --c-muted: #5f6e85;
   /* Decorative only (dots, icons). Too light for text on white. */
   --c-muted-dot: #94a3b8;
   --c-border: #e5e7eb;
   --c-border-strong: #d1d5db;
+  /* The edge of a control people type or click in: 3:1 against white, as WCAG asks of a control's boundary. */
+  --c-control-border: #858f9f;
   --c-bg: #ffffff;
   --c-bg-subtle: #f9fafb;
   --c-hover: #f3f4f6;
@@ -17,17 +20,22 @@
   --c-primary: #148cff;
   --c-primary-hover: #0878dd;
   --c-primary-active: #046ecd;
-  --c-link: #0878dd;
+  /* Behind white text: 5.1:1 and 6.3:1, where --c-primary gives 3.4:1. */
+  --c-primary-strong: #0360b5;
+  /* 5.1:1 on white, 4.5:1 on --c-primary-50. */
+  --c-link: #046ecd;
+  /* For small text on --c-primary-100, such as badges and initials. */
+  --c-link-strong: #00407f;
   --c-primary-50: #e8f2ff;
   --c-primary-100: #d1e6ff;
   --c-primary-200: #aed3ff;
   --c-primary-300: #5ba7ff;
 
   --c-success: #20c621;
-  --c-success-text: #008b03;
+  --c-success-text: #007a03;
   --c-danger: #ff4f59;
-  --c-danger-text: #dc3f49;
-  --c-danger-strong: #ba303a;
+  --c-danger-text: #ba303a;
+  --c-danger-strong: #9e2630;
   --c-danger-50: #ffedec;
   --c-danger-200: #ffc2bf;
   --c-warning: #e47600;
@@ -82,7 +90,7 @@ a {
   text-decoration: none;
 }
 a:hover {
-  color: var(--c-primary-hover);
+  color: var(--c-primary-strong);
   text-decoration: underline;
 }
 

@@ -8,6 +8,7 @@ import { PointsField, RubricEditor, type RubricValue } from "@/components/assign
 import type { UploadedDoc } from "@/components/assignments/uploadDoc";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
+import { useLeaveGuard } from "@/components/ui/LeaveGuard";
 import { toast } from "@/components/ui/Toast";
 import { api, errorMessage } from "@/lib/client/api";
 import { fmtSize } from "@/lib/shared/format";
@@ -49,6 +50,7 @@ export function InstructionsTab({ asg, canEdit, onSaved }: { asg: AssignmentData
   const [file, setFile] = useState<UploadedDoc | null>(asg.taskFile);
   const [busy, setBusy] = useState(false);
   const dirty = text !== asg.taskText || (file?.key ?? null) !== (asg.taskFile?.key ?? null);
+  useLeaveGuard(dirty);
   return (
     <section className="asg-body" aria-label="Instructions">
       <div className="section-head">
@@ -128,6 +130,8 @@ export function RubricTab({ asg, canEdit, onSaved }: { asg: AssignmentData; canE
   const [busy, setBusy] = useState(false);
   const [mismatchOpen, setMismatchOpen] = useState(false);
   const mismatch = pointsMismatch(rubric.method, rubric.rows, rubric.points);
+  // Edits to the rubric or the answer keys that Save hasn't sent yet.
+  useLeaveGuard(editing && (JSON.stringify(rubric) !== JSON.stringify(initial) || JSON.stringify(keys) !== JSON.stringify(asg.answerKeys)));
   const rows = asg.rubricMethod === "none" ? [] : asg.rubricRows.filter((r) => r.name.trim());
   const sum = rows.reduce((a, r) => a + (+r.pts || 0), 0);
 
@@ -258,6 +262,7 @@ export function SettingsTab({
   const [v, setV] = useState(initial);
   const [busy, setBusy] = useState(false);
   const dirty = JSON.stringify(v) !== JSON.stringify(initial);
+  useLeaveGuard(dirty);
   return (
     <section className="asg-body" aria-label="Settings" style={{ maxWidth: 620 }}>
       <div className="stack" style={{ gap: 4 }}>

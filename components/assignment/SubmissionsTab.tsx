@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Controls";
 import { useConfirm } from "@/components/ui/Dialog";
+import { useUnloadWarning } from "@/components/ui/LeaveGuard";
+import { regradeConfirm } from "./confirmRegrade";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { EmptyState, Mascot } from "@/components/ui/Mascot";
 import { ActionMenu, type MenuEntry } from "@/components/ui/Menu";
@@ -87,6 +89,8 @@ export function SubmissionsTab({
   const [hash, setHash] = useState("");
   const [staged, setStaged] = useState<Staged[] | null>(null);
   const [regrade, setRegrade] = useState(false);
+  // Uploads carry on while the person moves around the app, but closing or reloading the page drops the files not yet sent.
+  useUnloadWarning(list.uploading > 0);
   const [stageProgress, setStageProgress] = useState<StageProgress | null>(null);
   const stageAbort = useRef<AbortController | null>(null);
   const [pending, setPending] = useState<Pending[]>([]);
@@ -243,6 +247,10 @@ export function SubmissionsTab({
 
   // ----- Actions -----
   async function act(action: "regrade" | "retry" | "gradeAnyway" | "cancel" | "remove", ids: string[], ok: (n: number) => string) {
+    if (action === "regrade") {
+      const ask = regradeConfirm(items.filter((s) => ids.includes(s.id)));
+      if (ask && !(await confirm(ask))) return;
+    }
     try {
       const r = await api<{ count: number }>(`/api/assignments/${asg.id}/actions`, { body: { action, ids } });
       toast(r.count ? ok(r.count) : "Nothing to do for those files");
@@ -694,27 +702,27 @@ export function SubmissionsTab({
                     <div className="act-group" role="group">
                       {s.status === "graded" && (
                         <>
-                          <a className="act" href={fileHref(s.id)} target="_blank" rel="noopener">
+                          <a className="act" href={fileHref(s.id)} target="_blank" rel="noopener" title="Feedback">
                             <Icon name="messageText" size={15} />
-                            Feedback
+                            <span className="act__label">Feedback</span>
                           </a>
                           <span className="sep" />
                         </>
                       )}
                       {canGrade && s.status === "failed" && (
                         <>
-                          <button className="act" onClick={() => act("retry", [s.id], () => "Queued for retry")}>
+                          <button className="act" title="Retry" onClick={() => act("retry", [s.id], () => "Queued for retry")}>
                             <Icon name="rotate" size={15} />
-                            Retry
+                            <span className="act__label">Retry</span>
                           </button>
                           <span className="sep" />
                         </>
                       )}
                       {canGrade && s.status === "skipped" && (
                         <>
-                          <button className="act" onClick={() => act("gradeAnyway", [s.id], () => "Queued for grading")}>
+                          <button className="act" title="Grade anyway" onClick={() => act("gradeAnyway", [s.id], () => "Queued for grading")}>
                             <Icon name="play" size={14} />
-                            Grade anyway
+                            <span className="act__label">Grade anyway</span>
                           </button>
                           <span className="sep" />
                         </>

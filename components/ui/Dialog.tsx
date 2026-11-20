@@ -41,7 +41,15 @@ export function Modal({
   );
 }
 
-type ConfirmOptions = { title: string; body?: ReactNode; cta: string; danger?: boolean; cancel?: string };
+export type ConfirmOptions = { title: string; body?: ReactNode; cta: string; danger?: boolean; cancel?: string };
+
+/** Asked before revoking an invitation, from a course's people list or the admin's. */
+export const revokeInvitation = (email: string): ConfirmOptions => ({
+  title: "Revoke this invitation?",
+  body: `The link sent to ${email} stops working. To let them join later, invite them again.`,
+  cta: "Revoke invitation",
+  danger: true,
+});
 
 const ConfirmContext = createContext<(o: ConfirmOptions) => Promise<boolean>>(async () => false);
 
@@ -75,10 +83,11 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
                 {opts?.body && <AlertDialog.Description className="dialog__desc">{opts.body}</AlertDialog.Description>}
               </div>
               <div className="dialog__foot">
-                <Button variant="ghost" onClick={() => done(false)}>
+                {/* Focus starts on the safe choice when the action destroys something, so a stray Enter doesn't confirm it. */}
+                <Button variant="ghost" onClick={() => done(false)} autoFocus={!!opts?.danger}>
                   {opts?.cancel ?? "Cancel"}
                 </Button>
-                <Button variant={opts?.danger ? "danger" : "primary"} onClick={() => done(true)} autoFocus>
+                <Button variant={opts?.danger ? "danger" : "primary"} onClick={() => done(true)} autoFocus={!opts?.danger}>
                   {opts?.cta}
                 </Button>
               </div>
